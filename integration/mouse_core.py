@@ -84,6 +84,7 @@ class MouseController:
         self.position = None
         self.last_scroll = None
         self.wait_for_open = False
+        self.invert_x = False
 
     def start(self):
         """Resume only after an explicit user action."""
@@ -161,7 +162,8 @@ class MouseController:
                 self.last_scroll = y
                 return 'DEFILER'
             self.last_scroll = None
-            x, y = screen_position(landmarks[5].x, landmarks[5].y,
+            input_x = 1 - landmarks[5].x if self.invert_x else landmarks[5].x
+            x, y = screen_position(input_x, landmarks[5].y,
                                    self.width, self.height, self.margin)
             if self.position is None:
                 current = getattr(self.backend, 'position', None)

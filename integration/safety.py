@@ -36,6 +36,13 @@ class SafetyGuard:
                 self.controller.stop()
             return True
 
+    def toggle_horizontal(self):
+        """Change pointer direction without changing the displayed image."""
+        with self.lock:
+            self.controller.update(None)
+            self.controller.invert_x = not self.controller.invert_x
+            return self.controller.invert_x
+
     def start_monitor(self):
         def run():
             while not self.done.wait(.03):

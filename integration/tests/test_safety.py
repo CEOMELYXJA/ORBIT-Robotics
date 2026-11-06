@@ -46,6 +46,11 @@ class SafetyTests(unittest.TestCase):
         self.guard.close()
         self.assertTrue(self.controller.paused)
 
+    def test_reverse_direction_suspends_current_hand_first(self):
+        self.controller.invert_x = False
+        self.assertTrue(self.guard.toggle_horizontal())
+        self.assertEqual(self.controller.updates, [None])
+
     def test_cannot_resume_while_emergency_key_held(self):
         self.key = True
         self.assertFalse(self.guard.toggle())

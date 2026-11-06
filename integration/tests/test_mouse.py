@@ -63,6 +63,19 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.control.update(hand(left=True)), 'PAUSE')
         self.assertEqual(self.backend.events, [])
 
+    def test_pointer_direction_can_reverse_without_changing_input(self):
+        self.control.start()
+        p = hand()
+        p[5].x = .25
+        self.control.update(p)
+        left_x = self.backend.events[-1][1]
+        self.control.position = None
+        self.control.invert_x = True
+        self.control.update(p)
+        right_x = self.backend.events[-1][1]
+        self.assertLess(left_x, right_x)
+        self.assertEqual(p[5].x, .25)
+
     def test_pinch_debounce_drag_release_and_stop(self):
         self.control.start()
         for _ in range(2):

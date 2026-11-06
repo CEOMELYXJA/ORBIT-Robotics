@@ -111,7 +111,7 @@ def main():
                 status = 'ENREGISTREMENT' if session else 'PRET'
                 cv2.putText(frame, f'ORBIT | {status} | R: enregistrer/arreter | Q: quitter', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 0, 255) if session else (0, 220, 0), 2)
                 cv2.putText(frame, 'Camo : verifiez la connexion du telephone si aucune image.', (10, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                cv2.putText(frame, f'{mouse_status} | P: souris | F8: ARRET | M: miroir', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 220, 255), 2)
+                cv2.putText(frame, f'{mouse_status} | P souris | F8 arret | M image | H sens', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 255), 2)
                 cv2.imshow('ORBIT Robotics v0.1', frame)
                 key = cv2.waitKey(1) & 0xff
                 if cv2.getWindowProperty('ORBIT Robotics v0.1', cv2.WND_PROP_VISIBLE) < 1:
@@ -123,6 +123,8 @@ def main():
                     selector = HandSelector()
                     if guard:
                         guard.frame(None)
+                if key in (ord('h'), ord('H')) and guard:
+                    guard.toggle_horizontal()
                 if key in (ord('q'), ord('Q')):
                     break
                 if key in (ord('r'), ord('R')):
