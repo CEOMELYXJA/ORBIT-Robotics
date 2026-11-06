@@ -2,7 +2,7 @@
 
 The caller must provide an explicit, always available stop key/button and call
 stop() on shutdown, frame loss, or errors. Control is disabled on startup.
-Coordinates are normalised MediaPipe image coordinates from a mirrored image.
+Coordinates are normalised MediaPipe image coordinates from the displayed image.
 """
 import math
 import ctypes
@@ -83,6 +83,7 @@ class MouseController:
         self.left_count = self.right_count = 0
         self.position = None
         self.last_scroll = None
+        self.wait_for_open = False
 
     def start(self):
         """Resume only after an explicit user action."""
@@ -96,6 +97,7 @@ class MouseController:
         self.last_scroll = None
         self.left_count = self.right_count = 0
         self.right_triggered = False
+        self.wait_for_open = False
         if self.left_down:
             # Keep the state set if release fails so another stop can retry.
             self._release_left()
@@ -114,9 +116,19 @@ class MouseController:
         if self.paused:
             return 'PAUSE'
         if landmarks is None:
-            # Fail safe immediately, rather than retaining an accidental drag.
-            self.stop()
-            return 'MAIN PERDUE - PAUSE'
+            # Keep tracking armed, but never hold a click when a hand is lost.
+            try:
+                if self.left_down:
+                    self._release_left()
+                    self.left_down = False
+            except Exception:
+                self.stop()
+                raise
+            self.left_count = self.right_count = 0
+            self.right_triggered = False
+            self.position = self.last_scroll = None
+            self.wait_for_open = True
+            return 'RECHERCHE MAIN'
         try:
             if len(landmarks) < 21:
                 raise ValueError('Expected 21 hand landmarks')
@@ -126,6 +138,11 @@ class MouseController:
             scale = max(_distance(landmarks[0], landmarks[9]), .0001)
             left = _distance(landmarks[4], landmarks[8]) / scale
             right = _distance(landmarks[4], landmarks[12]) / scale
+            if self.wait_for_open:
+                if left > self.pinch_off and right > self.pinch_off:
+                    self.wait_for_open = False
+                else:
+                    return 'OUVRIR LA MAIN'
             index_up = landmarks[8].y < landmarks[6].y
             middle_up = landmarks[12].y < landmarks[10].y
             ring_up = landmarks[16].y < landmarks[14].y
@@ -147,11 +164,12 @@ class MouseController:
             x, y = screen_position(landmarks[5].x, landmarks[5].y,
                                    self.width, self.height, self.margin)
             if self.position is None:
-                self.position = (x, y)
-            else:
-                px, py = self.position
-                self.position = (px + (x - px) * self.smoothing,
-                                 py + (y - py) * self.smoothing)
+                current = getattr(self.backend, 'position', None)
+                self.position = tuple(current()) if callable(current) else (x, y)
+            px, py = self.position
+            # Bound per-frame travel, including after reacquiring a different hand.
+            self.position = (px + _clamp((x - px) * self.smoothing, -80, 80),
+                             py + _clamp((y - py) * self.smoothing, -80, 80))
             self.backend.moveTo(round(self.position[0]), round(self.position[1]))
             self.left_count = self.left_count + 1 if left < self.pinch_on else 0
             self.right_count = self.right_count + 1 if right < self.pinch_on and not self.left_down else 0

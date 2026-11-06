@@ -10,6 +10,7 @@ import cv2
 import mediapipe as mp
 from mouse_core import MouseController
 from safety import SafetyGuard, windows_f8
+from hand_selector import HandSelector
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / 'enregistrements'
@@ -35,19 +36,15 @@ def start_mouse_guard():
         return None
 
 
-def control_landmarks(hands):
-    """Use a hand only while exactly one is visible; order is not identity."""
-    if hands is None or len(hands) != 1:
-        return None
-    return hands[0].landmark
-
-
 def main():
     parser = argparse.ArgumentParser(description='ORBIT et HandsWizard : camera locale')
     parser.add_argument('--camera', type=int, default=0, help='numero de camera Windows')
     parser.add_argument('--backend', choices=['msmf', 'dshow'], default='msmf')
+    parser.add_argument('--mirror', action='store_true', help='inverser horizontalement la video et le curseur')
     args = parser.parse_args()
     guard = start_mouse_guard()
+    selector = HandSelector()
+    mirror = args.mirror
     print('Camera : ouvrir Camo sur le PC et sur le telephone, puis connecter le telephone.', flush=True)
     camera = cv2.VideoCapture
     cap = camera(args.camera, cv2.CAP_MSMF if args.backend == 'msmf' else cv2.CAP_DSHOW)
@@ -85,7 +82,8 @@ def main():
                     print('La webcam ne fournit plus d’image.')
                     last_error = RuntimeError('Camera interrompue')
                     break
-                frame = cv2.flip(frame, 1)
+                if mirror:
+                    frame = cv2.flip(frame, 1)
                 result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 detected = []
                 for idx, hand in enumerate(result.multi_hand_landmarks or []):
@@ -94,13 +92,16 @@ def main():
                     detected.append({'main': handed.label, 'confiance': handed.score, 'points': points})
                     drawing.draw_landmarks(frame, hand, hands_api.HAND_CONNECTIONS)
                 mouse_status = 'SOURIS INDISPONIBLE'
+                selected, changed = selector.select(result.multi_hand_landmarks, result.multi_handedness)
                 if guard:
                     if guard.error:
                         raise RuntimeError('Arret de securite indisponible: ' + guard.error)
-                    mouse_status = guard.frame(control_landmarks(result.multi_hand_landmarks))
+                    if selected is not None and changed and not guard.controller.paused:
+                        guard.frame(None)
+                    mouse_status = guard.frame(selected)
                 if session:
                     elapsed = time.monotonic() - session['start']
-                    record = {'image': session['frames'], 'temps_secondes': elapsed, 'mains': detected}
+                    record = {'image': session['frames'], 'temps_secondes': elapsed, 'miroir': mirror, 'mains': detected}
                     session['json_file'].write(json.dumps(record, ensure_ascii=False) + '\n')
                     for hand in detected:
                         for p in hand['points']:
@@ -110,13 +111,18 @@ def main():
                 status = 'ENREGISTREMENT' if session else 'PRET'
                 cv2.putText(frame, f'ORBIT | {status} | R: enregistrer/arreter | Q: quitter', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 0, 255) if session else (0, 220, 0), 2)
                 cv2.putText(frame, 'Camo : verifiez la connexion du telephone si aucune image.', (10, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                cv2.putText(frame, f'{mouse_status} | P: souris | F8: ARRET GLOBAL', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 220, 255), 2)
+                cv2.putText(frame, f'{mouse_status} | P: souris | F8: ARRET | M: miroir', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 220, 255), 2)
                 cv2.imshow('ORBIT Robotics v0.1', frame)
                 key = cv2.waitKey(1) & 0xff
                 if cv2.getWindowProperty('ORBIT Robotics v0.1', cv2.WND_PROP_VISIBLE) < 1:
                     break
-                if key in (ord('p'), ord('P')) and guard and control_landmarks(result.multi_hand_landmarks) is not None:
+                if key in (ord('p'), ord('P')) and guard and selected is not None:
                     guard.toggle()
+                if key in (ord('m'), ord('M')):
+                    mirror = not mirror
+                    selector = HandSelector()
+                    if guard:
+                        guard.frame(None)
                 if key in (ord('q'), ord('Q')):
                     break
                 if key in (ord('r'), ord('R')):
@@ -139,7 +145,7 @@ def main():
                         jf = (folder / 'images.jsonl').open('w', encoding='utf-8')
                         writer = csv.writer(cf)
                         writer.writerow(['image', 'temps_secondes', 'main', 'confiance', 'point', 'x', 'y', 'z'])
-                        session = {'dir': folder, 'video': video, 'csv_file': cf, 'json_file': jf, 'csv': writer, 'start': time.monotonic(), 'frames': 0, 'meta': {'debut': datetime.now().astimezone().isoformat(), 'largeur': width, 'hauteur': height, 'fps_video': fps, 'coordonnees': 'MediaPipe normalisées; image miroir'}}
+                        session = {'dir': folder, 'video': video, 'csv_file': cf, 'json_file': jf, 'csv': writer, 'start': time.monotonic(), 'frames': 0, 'meta': {'debut': datetime.now().astimezone().isoformat(), 'largeur': width, 'hauteur': height, 'fps_video': fps, 'coordonnees': 'MediaPipe normalisées ; orientation miroir indiquée par image dans JSONL'}}
                         print('Enregistrement commencé :', folder)
     except Exception as exc:
         last_error = exc

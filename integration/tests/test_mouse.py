@@ -76,14 +76,18 @@ class ControllerTests(unittest.TestCase):
         self.control.stop()
         self.assertEqual(self.backend.events.count(('up', 'left')), 1)
 
-    def test_release_on_lost_hand_requires_explicit_resume(self):
+    def test_release_on_lost_hand_and_reacquire_without_click(self):
         self.control.start()
         for _ in range(3): self.control.update(hand(left=True))
-        self.assertEqual(self.control.update(None), 'MAIN PERDUE - PAUSE')
+        self.assertEqual(self.control.update(None), 'RECHERCHE MAIN')
         self.assertEqual(self.backend.events[-1], ('up', 'left'))
-        self.assertTrue(self.control.paused)
+        self.assertFalse(self.control.paused)
+        for _ in range(5):
+            self.assertEqual(self.control.update(hand(left=True)), 'OUVRIR LA MAIN')
+        self.assertEqual(self.backend.events.count(('down', 'left')), 1)
         self.control.update(hand())
-        self.assertEqual(self.backend.events[-1], ('up', 'left'))
+        for _ in range(3): self.control.update(hand(left=True))
+        self.assertEqual(self.backend.events.count(('down', 'left')), 2)
 
     def test_right_click_once_until_unpinched(self):
         self.control.start()
