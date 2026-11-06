@@ -1,0 +1,8 @@
+ORBIT et HandsWizard - utilisation locale
+
+Double-cliquez sur ORBIT-et-HandsWizard.bat et choisissez un mode.
+1 : suivi de deux mains et enregistrement ORBIT. R demarre ou arrete ; Q quitte.
+2 : souris webcam HandsWizard. Le controle demarre en pause : P active ou met en pause, Q quitte. La perte de la main relache le clic.
+
+Fermez un mode avant de lancer l'autre : ils utilisent la meme camera. La copie HandsWizard vient de la v2 locale ; le mode iPhone n'est pas inclus dans ce lanceur. Les donnees ORBIT restent dans enregistrements. Les tests physiques restent a valider.
+
