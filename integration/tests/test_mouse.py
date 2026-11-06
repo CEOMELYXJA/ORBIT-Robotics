@@ -76,6 +76,21 @@ class ControllerTests(unittest.TestCase):
         self.assertLess(left_x, right_x)
         self.assertEqual(p[5].x, .25)
 
+    def test_pinch_freezes_aim_before_click_but_drag_can_move(self):
+        self.control.start()
+        p = hand()
+        self.control.update(p)
+        anchor = self.backend.events[-1][1:]
+        p = hand(left=True)
+        p[5].x = .8
+        for _ in range(3): self.control.update(p)
+        moves = [e[1:] for e in self.backend.events if e[0] == 'move']
+        self.assertEqual(moves[-1], anchor)
+        self.assertIn(('down', 'left'), self.backend.events)
+        self.control.update(p)
+        moves = [e[1:] for e in self.backend.events if e[0] == 'move']
+        self.assertNotEqual(moves[-1], anchor)
+
     def test_pinch_debounce_drag_release_and_stop(self):
         self.control.start()
         for _ in range(2):

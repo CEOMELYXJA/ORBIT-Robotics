@@ -11,6 +11,7 @@ import mediapipe as mp
 from mouse_core import MouseController
 from safety import SafetyGuard, windows_f8
 from hand_selector import HandSelector
+from monitors import windows_monitors
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / 'enregistrements'
@@ -23,7 +24,13 @@ def start_mouse_guard():
         import pyautogui
         pyautogui.FAILSAFE = True
         pyautogui.PAUSE = 0
-        candidate = SafetyGuard(MouseController(pyautogui, pyautogui.size()), windows_f8)
+        try:
+            monitors = windows_monitors()
+            print('Ecrans detectes :', len(monitors), flush=True)
+        except Exception as exc:
+            print('Ecrans : utilisation de l’écran principal :', exc, flush=True)
+            monitors = None
+        candidate = SafetyGuard(MouseController(pyautogui, pyautogui.size(), monitors=monitors), windows_f8)
         candidate.start_monitor()
         return candidate
     except Exception as exc:
@@ -34,6 +41,15 @@ def start_mouse_guard():
                 pass
         print('Souris indisponible, capture seule :', exc, flush=True)
         return None
+
+
+def tracking_image(frame, max_width=640):
+    """Limit inference size; normalised landmarks still match the full image."""
+    height, width = frame.shape[:2]
+    if width <= max_width:
+        return frame
+    return cv2.resize(frame, (max_width, max(1, round(height * max_width / width))),
+                      interpolation=cv2.INTER_AREA)
 
 
 def main():
@@ -75,7 +91,9 @@ def main():
             session = None
 
     try:
-        with hands_api.Hands(max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
+        with hands_api.Hands(max_num_hands=2, model_complexity=0, min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
+            fps_ema = 0.0
+            last_frame_time = time.monotonic()
             while True:
                 ok, frame = cap.read()
                 if not ok:
@@ -84,7 +102,7 @@ def main():
                     break
                 if mirror:
                     frame = cv2.flip(frame, 1)
-                result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                result = hands.process(cv2.cvtColor(tracking_image(frame), cv2.COLOR_BGR2RGB))
                 detected = []
                 for idx, hand in enumerate(result.multi_hand_landmarks or []):
                     handed = result.multi_handedness[idx].classification[0]
@@ -112,6 +130,11 @@ def main():
                 cv2.putText(frame, f'ORBIT | {status} | R: enregistrer/arreter | Q: quitter', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 0, 255) if session else (0, 220, 0), 2)
                 cv2.putText(frame, 'Camo : verifiez la connexion du telephone si aucune image.', (10, 55), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
                 cv2.putText(frame, f'{mouse_status} | P souris | F8 arret | M image | H sens', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 255), 2)
+                now = time.monotonic()
+                fps_now = 1.0 / max(now - last_frame_time, .001)
+                fps_ema = fps_now if not fps_ema else .9 * fps_ema + .1 * fps_now
+                last_frame_time = now
+                cv2.putText(frame, f'{fps_ema:.0f} images/s', (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
                 cv2.imshow('ORBIT Robotics v0.1', frame)
                 key = cv2.waitKey(1) & 0xff
                 if cv2.getWindowProperty('ORBIT Robotics v0.1', cv2.WND_PROP_VISIBLE) < 1:

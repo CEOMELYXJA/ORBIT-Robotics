@@ -7,6 +7,7 @@ Coordinates are normalised MediaPipe image coordinates from the displayed image.
 import math
 import ctypes
 import os
+from monitors import map_to_monitors
 
 
 def _windows_release_left():
@@ -68,12 +69,14 @@ class MouseController:
     caller should display a fault and leave the controller stopped.
     """
     def __init__(self, backend, screen_size, smoothing=.27, margin=.16,
-                 pinch_on=.27, pinch_off=.43, min_frames=3, emergency_release=None):
+                 pinch_on=.27, pinch_off=.43, min_frames=3, emergency_release=None,
+                 monitors=None):
         if not 0 < smoothing <= 1 or not 0 <= pinch_on < pinch_off or min_frames < 1:
             raise ValueError("Invalid controller configuration")
         self.backend = backend
         self.emergency_release = emergency_release or _windows_release_left
         self.width, self.height = screen_size
+        self.monitors = monitors
         screen_position(.5, .5, self.width, self.height, margin)
         self.smoothing, self.margin = smoothing, margin
         self.pinch_on, self.pinch_off, self.min_frames = pinch_on, pinch_off, min_frames
@@ -85,6 +88,7 @@ class MouseController:
         self.last_scroll = None
         self.wait_for_open = False
         self.invert_x = False
+        self.aim_anchor = None
 
     def start(self):
         """Resume only after an explicit user action."""
@@ -99,6 +103,7 @@ class MouseController:
         self.left_count = self.right_count = 0
         self.right_triggered = False
         self.wait_for_open = False
+        self.aim_anchor = None
         if self.left_down:
             # Keep the state set if release fails so another stop can retry.
             self._release_left()
@@ -128,6 +133,7 @@ class MouseController:
             self.left_count = self.right_count = 0
             self.right_triggered = False
             self.position = self.last_scroll = None
+            self.aim_anchor = None
             self.wait_for_open = True
             return 'RECHERCHE MAIN'
         try:
@@ -150,6 +156,7 @@ class MouseController:
             pinky_up = landmarks[20].y < landmarks[18].y
             scroll = index_up and middle_up and not ring_up and not pinky_up and left > .6 and right > .6
             if scroll:
+                self.aim_anchor = None
                 if self.left_down:
                     self._release_left()
                     self.left_down = False
@@ -163,15 +170,26 @@ class MouseController:
                 return 'DEFILER'
             self.last_scroll = None
             input_x = 1 - landmarks[5].x if self.invert_x else landmarks[5].x
-            x, y = screen_position(input_x, landmarks[5].y,
-                                   self.width, self.height, self.margin)
+            x, y = (map_to_monitors(input_x, landmarks[5].y, self.monitors, self.margin)
+                    if self.monitors else screen_position(input_x, landmarks[5].y,
+                                                          self.width, self.height, self.margin))
             if self.position is None:
                 current = getattr(self.backend, 'position', None)
                 self.position = tuple(current()) if callable(current) else (x, y)
             px, py = self.position
-            # Bound per-frame travel, including after reacquiring a different hand.
-            self.position = (px + _clamp((x - px) * self.smoothing, -80, 80),
-                             py + _clamp((y - py) * self.smoothing, -80, 80))
+            distance = math.hypot(x - px, y - py)
+            # Hold the pointer when a pinch begins; drag resumes on deliberate movement.
+            if left < .55 and self.aim_anchor is None:
+                self.aim_anchor = self.position
+            if left >= .55:
+                self.aim_anchor = None
+            if self.aim_anchor is not None and self.left_down and math.hypot(
+                    x - self.aim_anchor[0], y - self.aim_anchor[1]) > 45:
+                self.aim_anchor = None
+            if self.aim_anchor is None and distance > 3:
+                alpha = self.smoothing if distance < 25 else max(self.smoothing, .55)
+                self.position = (px + _clamp((x - px) * alpha, -180, 180),
+                                 py + _clamp((y - py) * alpha, -180, 180))
             self.backend.moveTo(round(self.position[0]), round(self.position[1]))
             self.left_count = self.left_count + 1 if left < self.pinch_on else 0
             self.right_count = self.right_count + 1 if right < self.pinch_on and not self.left_down else 0

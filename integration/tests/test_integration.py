@@ -20,6 +20,12 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_tracking_image_scales_without_distortion(self):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        self.assertEqual(app.tracking_image(frame).shape, (360, 640, 3))
+        small = np.zeros((100, 200, 3), dtype=np.uint8)
+        self.assertIs(app.tracking_image(small), small)
+
     def test_mouse_disabled_if_monitor_fails_to_start(self):
         candidate = Mock()
         candidate.start_monitor.side_effect = RuntimeError('moniteur indisponible')
