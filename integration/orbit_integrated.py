@@ -15,20 +15,39 @@ ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / 'enregistrements'
 
 
+def start_mouse_guard():
+    """Return a monitored mouse controller, or disable mouse on setup failure."""
+    candidate = None
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = True
+        pyautogui.PAUSE = 0
+        candidate = SafetyGuard(MouseController(pyautogui, pyautogui.size()), windows_f8)
+        candidate.start_monitor()
+        return candidate
+    except Exception as exc:
+        if candidate is not None:
+            try:
+                candidate.close()
+            except Exception:
+                pass
+        print('Souris indisponible, capture seule :', exc, flush=True)
+        return None
+
+
+def control_landmarks(hands):
+    """Use a hand only while exactly one is visible; order is not identity."""
+    if hands is None or len(hands) != 1:
+        return None
+    return hands[0].landmark
+
+
 def main():
     parser = argparse.ArgumentParser(description='ORBIT et HandsWizard : camera locale')
     parser.add_argument('--camera', type=int, default=0, help='numero de camera Windows')
     parser.add_argument('--backend', choices=['msmf', 'dshow'], default='msmf')
     args = parser.parse_args()
-    guard = None
-    try:
-        import pyautogui
-        pyautogui.FAILSAFE = True
-        pyautogui.PAUSE = 0
-        guard = SafetyGuard(MouseController(pyautogui, pyautogui.size()), windows_f8)
-        guard.start_monitor()
-    except Exception as exc:
-        print('Souris indisponible, capture seule :', exc, flush=True)
+    guard = start_mouse_guard()
     print('Camera : ouvrir Camo sur le PC et sur le telephone, puis connecter le telephone.', flush=True)
     camera = cv2.VideoCapture
     cap = camera(args.camera, cv2.CAP_MSMF if args.backend == 'msmf' else cv2.CAP_DSHOW)
@@ -78,7 +97,7 @@ def main():
                 if guard:
                     if guard.error:
                         raise RuntimeError('Arret de securite indisponible: ' + guard.error)
-                    mouse_status = guard.frame(result.multi_hand_landmarks[0].landmark if result.multi_hand_landmarks else None)
+                    mouse_status = guard.frame(control_landmarks(result.multi_hand_landmarks))
                 if session:
                     elapsed = time.monotonic() - session['start']
                     record = {'image': session['frames'], 'temps_secondes': elapsed, 'mains': detected}
@@ -96,7 +115,7 @@ def main():
                 key = cv2.waitKey(1) & 0xff
                 if cv2.getWindowProperty('ORBIT Robotics v0.1', cv2.WND_PROP_VISIBLE) < 1:
                     break
-                if key in (ord('p'), ord('P')) and guard:
+                if key in (ord('p'), ord('P')) and guard and control_landmarks(result.multi_hand_landmarks) is not None:
                     guard.toggle()
                 if key in (ord('q'), ord('Q')):
                     break
@@ -140,4 +159,5 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
 

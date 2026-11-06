@@ -53,7 +53,7 @@ Le contrôle est en pause au démarrage, et les clics sont relâchés si la main
 
 ## GitHub Pages : ce que la page publique fait et ne fait pas
 
-La page `https://ceomelyxja.github.io/handswizard/` est un **guide public**, pas la connexion privée. Le navigateur GitHub Pages ne peut pas piloter Windows directement. Ton PC exécute le programme Python; ton iPhone ouvre **l'adresse HTTPS privée Tailscale** affichée par PowerShell.
+La page de présentation est un **guide public**, pas la connexion privée. Un navigateur ne peut pas piloter Windows directement. Le PC exécute le programme Python ; l'iPhone ouvre **l'adresse HTTPS privée Tailscale** affichée par PowerShell.
 
 ## Dépannage
 
@@ -71,3 +71,4 @@ La page `https://ceomelyxja.github.io/handswizard/` est un **guide public**, pas
 
 ### État du projet
 Cette branche est une **première version à tester sur tes deux appareils**. Aucun test physique iPhone ni webcam Windows n'est revendiqué. Les contrôles de sécurité restent à confirmer dans ton propre tailnet.
+

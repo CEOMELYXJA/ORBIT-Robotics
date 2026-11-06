@@ -24,11 +24,17 @@ class SafetyGuard:
 
     def toggle(self):
         with self.lock:
+            # Never re-enable after the safety monitor fails or has closed, and
+            # never enable while the emergency key is held down.
+            if self.error or self.done.is_set() or self.key_pressed():
+                self.controller.stop()
+                return False
             if self.controller.paused:
                 self.controller.start()
                 self.last_frame = self.clock()
             else:
                 self.controller.stop()
+            return True
 
     def start_monitor(self):
         def run():
@@ -56,4 +62,5 @@ class SafetyGuard:
 
 def windows_f8():
     return bool(ctypes.windll.user32.GetAsyncKeyState(0x77) & 0x8000)
+
 

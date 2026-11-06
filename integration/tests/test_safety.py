@@ -46,5 +46,20 @@ class SafetyTests(unittest.TestCase):
         self.guard.close()
         self.assertTrue(self.controller.paused)
 
+    def test_cannot_resume_while_emergency_key_held(self):
+        self.key = True
+        self.assertFalse(self.guard.toggle())
+        self.assertTrue(self.controller.paused)
+
+    def test_cannot_resume_after_monitor_fault_or_shutdown(self):
+        self.guard.error = 'monitor fault'
+        self.assertFalse(self.guard.toggle())
+        self.assertTrue(self.controller.paused)
+        self.guard.error = None
+        self.guard.close()
+        self.assertFalse(self.guard.toggle())
+        self.assertTrue(self.controller.paused)
+
 if __name__ == '__main__': unittest.main()
+
 

@@ -1,7 +1,7 @@
 import sys
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import numpy as np
 import orbit_integrated as app
 
@@ -20,6 +20,58 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_mouse_disabled_if_monitor_fails_to_start(self):
+        candidate = Mock()
+        candidate.start_monitor.side_effect = RuntimeError('moniteur indisponible')
+        fake_mouse = SimpleNamespace(size=lambda: (1920, 1080))
+        with patch.dict(sys.modules, {'pyautogui': fake_mouse}), \
+             patch.object(app, 'MouseController', return_value=Mock()), \
+             patch.object(app, 'SafetyGuard', return_value=candidate):
+            self.assertIsNone(app.start_mouse_guard())
+        candidate.close.assert_called_once()
+
+    def test_mouse_stays_disabled_if_monitor_cleanup_also_fails(self):
+        candidate = Mock()
+        candidate.start_monitor.side_effect = RuntimeError('moniteur indisponible')
+        candidate.close.side_effect = RuntimeError('fermeture impossible')
+        fake_mouse = SimpleNamespace(size=lambda: (1920, 1080))
+        with patch.dict(sys.modules, {'pyautogui': fake_mouse}), \
+             patch.object(app, 'MouseController', return_value=Mock()), \
+             patch.object(app, 'SafetyGuard', return_value=candidate):
+            self.assertIsNone(app.start_mouse_guard())
+
+    def test_control_requires_exactly_one_hand(self):
+        first = SimpleNamespace(landmark=object())
+        second = SimpleNamespace(landmark=object())
+        self.assertIsNone(app.control_landmarks(None))
+        self.assertIsNone(app.control_landmarks([]))
+        self.assertIs(app.control_landmarks([first]), first.landmark)
+        self.assertIsNone(app.control_landmarks([first, second]))
+
+    def test_two_hands_pause_control_and_cannot_activate_mouse(self):
+        cap = Cap()
+        point = SimpleNamespace(x=.5, y=.5, z=0)
+        hand = SimpleNamespace(landmark=[point] * 21)
+        side = SimpleNamespace(classification=[SimpleNamespace(label='Left', score=.9)])
+        detector = Hands()
+        detector.process = Mock(return_value=SimpleNamespace(
+            multi_hand_landmarks=[hand, hand], multi_handedness=[side, side]))
+        guard = Mock()
+        guard.error = None
+        guard.frame.return_value = 'PAUSE'
+        with patch.object(sys, 'argv', ['orbit']), patch.object(app, 'start_mouse_guard', return_value=guard), \
+             patch.object(app.cv2, 'VideoCapture', return_value=cap), \
+             patch.object(app.mp.solutions.hands, 'Hands', return_value=detector), \
+             patch.object(app.mp.solutions.drawing_utils, 'draw_landmarks'), \
+             patch.object(app.cv2, 'imshow'), patch.object(app.cv2, 'destroyAllWindows'), \
+             patch.object(app.cv2, 'getWindowProperty', return_value=1), \
+             patch.object(app.cv2, 'waitKey', side_effect=[ord('p'), ord('q')]):
+            self.assertEqual(app.main(), 0)
+        self.assertEqual(guard.frame.call_count, 2)
+        guard.frame.assert_called_with(None)
+        guard.toggle.assert_not_called()
+        guard.close.assert_called_once()
+
     def test_frame_is_processed_and_shutdown_releases_camera(self):
         cap = Cap()
         with patch.object(sys, 'argv', ['orbit']), patch.object(app.cv2, 'VideoCapture', return_value=cap), \
@@ -47,4 +99,5 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(all(c.released for c in cameras))
 
 if __name__ == '__main__': unittest.main()
+
 

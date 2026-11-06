@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 title ORBIT et HandsWizard
 if not exist ".venv311\Scripts\python.exe" (
-  echo Environnement Python introuvable. Contactez votre assistant.
+  echo Environnement Python introuvable. Consultez les instructions d'installation.
   pause
   exit /b 1
 )
@@ -18,4 +18,5 @@ goto end
 ".venv311\Scripts\python.exe" handswizard_webcam.py
 :end
 if errorlevel 1 pause
+
 

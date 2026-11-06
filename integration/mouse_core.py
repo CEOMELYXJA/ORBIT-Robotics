@@ -5,6 +5,38 @@ stop() on shutdown, frame loss, or errors. Control is disabled on startup.
 Coordinates are normalised MediaPipe image coordinates from a mirrored image.
 """
 import math
+import ctypes
+import os
+
+
+def _windows_release_left():
+    """Release only the left mouse button without moving it.
+
+    PyAutoGUI's corner fail-safe runs before mouseUp as well as before movement;
+    use a single native release if that fail-safe prevents ending a drag. This
+    is not used for ordinary mouse operations and does not disable the fail-safe.
+    """
+    if os.name != 'nt':
+        raise RuntimeError('Native mouse release is available on Windows only')
+    from ctypes import wintypes
+
+    class MouseInput(ctypes.Structure):
+        _fields_ = [('dx', wintypes.LONG), ('dy', wintypes.LONG),
+                    ('mouseData', wintypes.DWORD), ('dwFlags', wintypes.DWORD),
+                    ('time', wintypes.DWORD), ('dwExtraInfo', ctypes.c_size_t)]
+
+    class InputData(ctypes.Union):
+        _fields_ = [('mi', MouseInput)]
+
+    class Input(ctypes.Structure):
+        _fields_ = [('type', wintypes.DWORD), ('data', InputData)]
+
+    event = Input(type=0, data=InputData(mi=MouseInput(0, 0, 0, 0x0004, 0, 0)))
+    send_input = ctypes.windll.user32.SendInput
+    send_input.argtypes = (wintypes.UINT, ctypes.POINTER(Input), ctypes.c_int)
+    send_input.restype = wintypes.UINT
+    if send_input(1, ctypes.byref(event), ctypes.sizeof(Input)) != 1:
+        raise OSError('Windows rejected the emergency mouse-button release')
 
 
 def _clamp(value, low, high):
@@ -36,10 +68,11 @@ class MouseController:
     caller should display a fault and leave the controller stopped.
     """
     def __init__(self, backend, screen_size, smoothing=.27, margin=.16,
-                 pinch_on=.27, pinch_off=.43, min_frames=3):
+                 pinch_on=.27, pinch_off=.43, min_frames=3, emergency_release=None):
         if not 0 < smoothing <= 1 or not 0 <= pinch_on < pinch_off or min_frames < 1:
             raise ValueError("Invalid controller configuration")
         self.backend = backend
+        self.emergency_release = emergency_release or _windows_release_left
         self.width, self.height = screen_size
         screen_position(.5, .5, self.width, self.height, margin)
         self.smoothing, self.margin = smoothing, margin
@@ -65,8 +98,17 @@ class MouseController:
         self.right_triggered = False
         if self.left_down:
             # Keep the state set if release fails so another stop can retry.
-            self.backend.mouseUp(button='left')
+            self._release_left()
             self.left_down = False
+
+    def _release_left(self):
+        try:
+            self.backend.mouseUp(button='left')
+        except Exception as exc:
+            failsafe = getattr(self.backend, 'FailSafeException', None)
+            if not isinstance(failsafe, type) or not isinstance(exc, failsafe):
+                raise
+            self.emergency_release()
 
     def update(self, landmarks):
         if self.paused:
@@ -91,7 +133,7 @@ class MouseController:
             scroll = index_up and middle_up and not ring_up and not pinky_up and left > .6 and right > .6
             if scroll:
                 if self.left_down:
-                    self.backend.mouseUp(button='left')
+                    self._release_left()
                     self.left_down = False
                 self.left_count = self.right_count = 0
                 y = landmarks[9].y
@@ -119,7 +161,7 @@ class MouseController:
                 self.left_down = True
                 self.backend.mouseDown(button='left')
             elif self.left_down and left > self.pinch_off:
-                self.backend.mouseUp(button='left')
+                self._release_left()
                 self.left_down = False
             if self.right_count >= self.min_frames and not self.right_triggered and not self.left_down:
                 self.backend.click(button='right')
@@ -135,4 +177,5 @@ class MouseController:
                 # must report the failure instead of silently resuming.
                 pass
             raise
+
 
