@@ -1,6 +1,10 @@
 import json
+import io
+import csv
 import unittest
-from dataset_validator import validate_streams
+from pathlib import Path
+from unittest.mock import patch
+from dataset_validator import validate_streams, main
 
 
 def sample():
@@ -68,6 +72,31 @@ class DatasetValidatorTests(unittest.TestCase):
         for row in rows: row['temps_secondes'] = '2'
         records.append({'image': 1, 'temps_secondes': 1, 'mains': []})
         self.assertFalse(run(meta, records, rows)['valide'])
+
+    def test_cli_reads_only_the_three_data_streams(self):
+        meta, records, rows = sample()
+        csv_file = io.StringIO(newline='')
+        writer = csv.DictWriter(csv_file, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+        contents = {'metadata.json': json.dumps(meta),
+                    'images.jsonl': '\n'.join(json.dumps(r) for r in records),
+                    'points.csv': csv_file.getvalue()}
+        opened = []
+        def fake_open(path, *args, **kwargs):
+            opened.append(path.name)
+            return io.StringIO(contents[path.name])
+        with patch.object(Path, 'open', fake_open), patch('sys.stdout', new_callable=io.StringIO):
+            self.assertEqual(main(['fictif']), 0)
+        self.assertEqual(opened, ['metadata.json', 'images.jsonl', 'points.csv'])
+
+    def test_cli_rejects_missing_csv_headers(self):
+        meta, records, _ = sample()
+        contents = {'metadata.json': json.dumps(meta), 'images.jsonl': json.dumps(records[0]),
+                    'points.csv': 'image,point\n0,0\n'}
+        with patch.object(Path, 'open', lambda path, *a, **k: io.StringIO(contents[path.name])), \
+             patch('sys.stdout', new_callable=io.StringIO):
+            self.assertEqual(main(['fictif']), 2)
 
 if __name__ == '__main__': unittest.main()
 
