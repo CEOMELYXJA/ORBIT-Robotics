@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1425"><title>Handswizard · Air Mouse</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:#080e1b;color:#f4f8ff;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);touch-action:manipulation}
+main{max-width:580px;margin:auto;padding:24px 0}.muted{color:#aab9d3;font-size:14px;line-height:1.5}h1{font-size:28px;margin:4px 0 6px}h2{font-size:18px}button,input{font:inherit}button{border:1px solid #4677a8;background:#234c81;color:#fff;border-radius:14px;padding:16px 15px;font-weight:700;touch-action:none}button:disabled{opacity:.4}button:active{background:#407ab7}.big{width:100%;font-size:19px;padding:23px}.stop{background:#7f283b;border-color:#e66b77}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.card{padding:16px;margin:16px 0;border:1px solid #304363;background:#111c30;border-radius:18px}.hide{display:none!important}input{background:#070e1b;border:1px solid #617a9d;border-radius:12px;color:white;padding:16px;width:100%;font-size:20px;letter-spacing:.18em}label{display:block;margin:15px 0 8px}.tag{display:inline-block;border-radius:20px;background:#26374c;padding:7px 13px;font-size:13px;margin:10px 0}.on{background:#153f32;color:#a5efcd}#touch{height:145px;border:1px dashed #6987b5;border-radius:16px;display:grid;place-items:center;color:#b1c6e9;touch-action:none;user-select:none}.tiny{font-size:12px;color:#9aadc9}a{color:#9fcaff}output{color:#b9e7ff}
+</style></head><body><main>
+<h1>✦ HANDSWIZARD</h1><div class="muted">Ton iPhone devient une souris aérienne. Le vrai curseur Windows réagit aux mouvements de ta main.</div>
+<div id="state" class="tag">Déconnecté</div>
+<section id="login" class="card"><h2>Associer ton iPhone</h2><p class="muted">Entre le code à 6 chiffres affiché uniquement dans la fenêtre du programme Windows. Ne le partage pas.</p>
+<label for="code">Code d'appairage</label><input id="code" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="000000">
+<button id="pair" class="big" style="margin-top:12px">Associer mon iPhone</button><p id="pairError" class="muted" role="alert"></p></section>
+<section id="controls" class="hide">
+<div class="card"><button id="sensor" class="big">1 · Autoriser le gyroscope</button><p class="muted">Safari doit être ouvert en HTTPS. Autorise les capteurs seulement si iOS te le demande. Garde ton téléphone en main, puis calibre sa position.</p>
+<button id="calibrate" class="big">2 · Calibrer ma position</button><p id="angles" class="tiny">Aucun mouvement détecté.</p>
+<label for="speed">Sensibilité : <output id="speedValue">1.0</output></label><input type="range" id="speed" min=".3" max="2.5" step=".1" value="1">
+</div>
+<button id="toggle" class="big">3 · Démarrer la souris</button><div class="grid"><button id="left">Clic gauche</button><button id="right">Clic droit</button></div>
+<div class="grid"><button id="drag">Maintenir / glisser</button><button id="release">Relâcher</button></div><div class="grid"><button id="up">Défiler ↑</button><button id="down">Défiler ↓</button></div>
+<div id="touch" aria-label="Pavé tactile de secours">Pavé tactile de secours</div>
+<p class="muted">La souris s'arrête automatiquement si la connexion est perdue. Le bouton « Arrêter » reste disponible en tout temps.</p>
+<button id="logout" class="big stop">Dissocier cet iPhone</button></section>
+<p class="tiny">Connexion privée uniquement. Ne publie jamais le serveur Windows sur un tunnel public ou une redirection de port.</p>
+</main><script src="/mobile.js"></script></body></html>

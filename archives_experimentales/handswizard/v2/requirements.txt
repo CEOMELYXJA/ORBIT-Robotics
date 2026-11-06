@@ -1,0 +1,6 @@
+# Windows 11, Python 3.11 x64 recommandé
+aiohttp>=3.10,<4
+opencv-python>=4.8,<5
+mediapipe==0.10.21
+pyautogui>=0.9.54,<1
+
