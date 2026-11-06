@@ -36,6 +36,10 @@ class SafetyGuard:
                 self.controller.stop()
             return True
 
+    def pause(self):
+        with self.lock:
+            self.controller.stop()
+
     def toggle_horizontal(self):
         """Change pointer direction without changing the displayed image."""
         with self.lock:

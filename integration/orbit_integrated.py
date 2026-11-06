@@ -12,6 +12,7 @@ from mouse_core import MouseController
 from safety import SafetyGuard, windows_f8
 from hand_selector import HandSelector
 from monitors import windows_monitors
+from gestures import GestureSwitch
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / 'enregistrements'
@@ -52,6 +53,30 @@ def tracking_image(frame, max_width=640):
                       interpolation=cv2.INTER_AREA)
 
 
+def process_hand_control(guard, gestures, hands, selected, changed):
+    """Handle gesture actions without issuing input for an ambiguous pose."""
+    if guard.error:
+        raise RuntimeError('Arret de securite indisponible: ' + guard.error)
+    action, blocked = gestures.update(hands, guard.controller.paused)
+    if blocked:
+        guard.frame(None)
+    if action == 'pause':
+        guard.pause()
+    elif action == 'resume':
+        if selected is None or not guard.toggle():
+            return 'REPRISE IMPOSSIBLE'
+        guard.frame(None)
+    if blocked:
+        if action == 'resume':
+            return 'OUVRIR LA MAIN'
+        if action == 'pause':
+            return 'PAUSE PAR GESTE'
+        return '2 POINGS: REPRISE' if guard.controller.paused else 'POING: PAUSE'
+    if selected is not None and changed and not guard.controller.paused:
+        guard.frame(None)
+    return guard.frame(selected)
+
+
 def main():
     parser = argparse.ArgumentParser(description='ORBIT et HandsWizard : camera locale')
     parser.add_argument('--camera', type=int, default=0, help='numero de camera Windows')
@@ -60,6 +85,7 @@ def main():
     args = parser.parse_args()
     guard = start_mouse_guard()
     selector = HandSelector()
+    gestures = GestureSwitch()
     mirror = args.mirror
     print('Camera : ouvrir Camo sur le PC et sur le telephone, puis connecter le telephone.', flush=True)
     camera = cv2.VideoCapture
@@ -112,11 +138,7 @@ def main():
                 mouse_status = 'SOURIS INDISPONIBLE'
                 selected, changed = selector.select(result.multi_hand_landmarks, result.multi_handedness)
                 if guard:
-                    if guard.error:
-                        raise RuntimeError('Arret de securite indisponible: ' + guard.error)
-                    if selected is not None and changed and not guard.controller.paused:
-                        guard.frame(None)
-                    mouse_status = guard.frame(selected)
+                    mouse_status = process_hand_control(guard, gestures, result.multi_hand_landmarks, selected, changed)
                 if session:
                     elapsed = time.monotonic() - session['start']
                     record = {'image': session['frames'], 'temps_secondes': elapsed, 'miroir': mirror, 'mains': detected}
@@ -135,6 +157,7 @@ def main():
                 fps_ema = fps_now if not fps_ema else .9 * fps_ema + .1 * fps_now
                 last_frame_time = now
                 cv2.putText(frame, f'{fps_ema:.0f} images/s', (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
+                cv2.putText(frame, '1 poing: pause | 2 poings: reprise (maintenir)', (10, 128), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
                 cv2.imshow('ORBIT Robotics v0.1', frame)
                 key = cv2.waitKey(1) & 0xff
                 if cv2.getWindowProperty('ORBIT Robotics v0.1', cv2.WND_PROP_VISIBLE) < 1:

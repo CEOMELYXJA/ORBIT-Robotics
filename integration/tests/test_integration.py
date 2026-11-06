@@ -20,6 +20,37 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_pause_gesture_releases_before_pausing(self):
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = False
+        gestures = Mock()
+        gestures.update.return_value = ('pause', True)
+        self.assertEqual(app.process_hand_control(guard, gestures, [], None, False), 'PAUSE PAR GESTE')
+        guard.frame.assert_called_once_with(None)
+        guard.pause.assert_called_once()
+
+    def test_resume_gesture_requires_open_hand_and_refuses_failure(self):
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = True
+        guard.toggle.return_value = True
+        gestures = Mock()
+        gestures.update.return_value = ('resume', True)
+        self.assertEqual(app.process_hand_control(guard, gestures, [], [1], False), 'OUVRIR LA MAIN')
+        self.assertEqual(guard.frame.call_count, 2)
+        guard.toggle.return_value = False
+        self.assertEqual(app.process_hand_control(guard, gestures, [], [1], False), 'REPRISE IMPOSSIBLE')
+
+    def test_resume_does_not_activate_without_identified_hand(self):
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = True
+        gestures = Mock()
+        gestures.update.return_value = ('resume', True)
+        app.process_hand_control(guard, gestures, [], None, False)
+        guard.toggle.assert_not_called()
+
     def test_tracking_image_scales_without_distortion(self):
         frame = np.zeros((720, 1280, 3), dtype=np.uint8)
         self.assertEqual(app.tracking_image(frame).shape, (360, 640, 3))
