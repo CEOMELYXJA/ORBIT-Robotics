@@ -6,5 +6,5 @@ Le geste prévu est un poing tenu au moins 1,2 seconde pour demander la pause. P
 
 Pour l'essai futur, fermer normalement l'autre instance ORBIT afin qu'elle ne monopolise pas la caméra, puis lancer `Lancer-ORBIT.cmd` dans ce dossier. Le contrôle démarre en pause. La version précédente et ses données sont préservées.
 
-La commande du micro n'est pas encore reliée aux gestes. La conversation vocale et la dictée nécessitent des déclencheurs confirmés dans l'application ; voir `VOIX_ET_SUITE.md`. Le validateur de données n'est lancé que sur un dossier explicitement choisi ; les essais réalisés pour cette version ont utilisé uniquement des données fictives.
+La commande du micro n'est pas encore reliée aux gestes. Un reconnaisseur expérimental désactivé par défaut émet uniquement des suggestions, sans envoyer de touches ni activer le micro. La conversation vocale et la dictée nécessitent des déclencheurs confirmés dans l'application ; voir `VOIX_ET_SUITE.md`. Le validateur de données n'est lancé que sur un dossier explicitement choisi ; les essais réalisés pour cette version ont utilisé uniquement des données fictives.
 

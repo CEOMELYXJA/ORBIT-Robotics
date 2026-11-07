@@ -7,6 +7,8 @@
 
 L'application peut proposer un raccourci configurable pour le chat vocal. Le choix et la portée exacte de ce raccourci doivent être vérifiés dans l'installation utilisée. Aucun raccourci de dictée n'a été confirmé pour cette installation. ORBIT ne déclenche pas encore le micro ; il n'écoute ni n'enregistre le son.
 
+`voice_gestures.py` contient un prototype désactivé par défaut qui reconnaît deux poses à deux mains : deux signes en V suggèrent la conversation vocale, deux index levés suggèrent la dictée. Il attend plusieurs observations pendant au moins 2,5 secondes et n'émet qu'un événement jusqu'au relâchement. Il ne commande aucune application ni aucun microphone et n'est pas branché à l'interface. Ces gestes n'ont été vérifiés qu'avec des points synthétiques ; confort, reconnaissance et risque de déclenchement involontaire restent à tester.
+
 Une intégration gestuelle sûre doit exiger une activation explicite, utiliser uniquement un raccourci confirmé par l'utilisateur, bloquer les clics pendant le geste, éviter les répétitions et rester désactivable. Ne pas supposer qu'un raccourci est valable dans toutes les applications ni envoyer une touche dans une fenêtre non identifiée. L'envoi automatique de messages n'est pas prévu.
 
 ## Étapes suivantes
