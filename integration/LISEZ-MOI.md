@@ -10,11 +10,13 @@ Le déplacement utilise les écrans détectés par Windows, ordonnés de gauche 
 
 ## Gestes expérimentaux de pause
 
-Un poing maintenu environ 1,2 seconde demande la pause. Lorsque le contrôle est en pause, deux poings maintenus environ 2 secondes demandent la reprise ; relâcher les poings après la pause avant de tenter la reprise. Pendant la formation du geste, un clic maintenu est relâché. Après la reprise, la main doit s'ouvrir avant qu'un nouveau clic puisse se produire. F8 reste disponible. Ces gestes ont été testés avec des données synthétiques uniquement : leur reconnaissance, les erreurs possibles et la sécurité doivent être évaluées avec une personne présente avant utilisation. Ils ne constituent pas un arrêt d'urgence matériel.
+Un poing maintenu au moins 1,2 seconde demande la pause. Lorsque le contrôle est en pause, deux poings maintenus au moins 2 secondes demandent la reprise ; relâcher les poings après la pause avant de tenter la reprise. Plusieurs images successives sont nécessaires : si le suivi est trop intermittent, le geste doit être recommencé. Pendant la formation du geste, un clic maintenu est relâché. Après la reprise, la main doit s'ouvrir avant qu'un nouveau clic puisse se produire. F8 reste disponible. Ces gestes ont été testés avec des données synthétiques uniquement : leur reconnaissance, les erreurs possibles et la sécurité doivent être évaluées avec une personne présente avant utilisation. Ils ne constituent pas un arrêt d'urgence matériel.
 
 ## Vérification des données de démonstration
 
 `dataset_validator.py CHEMIN_DE_SESSION` vérifie à la demande les métadonnées et la cohérence des points CSV et JSONL d'un dossier explicitement choisi. Il ne modifie pas la session et n'ouvre pas la vidéo. Il contrôle notamment les horodatages, les 21 points et leur correspondance dans l'ordre d'export ORBIT ; il ne prouve pas que les coordonnées sont précises ou utilisables pour un robot. Les tests inclus ne contiennent que des données synthétiques.
+
+Après validation, `data_quality.py CHEMIN_DE_SESSION` peut résumer la durée, la cadence, la proportion d'images avec une main et les interruptions. Ce résumé ne contient pas les coordonnées et ne mesure ni la précision physique ni le délai complet de la caméra. Il ne lit que `images.jsonl`, après sélection explicite du dossier.
 
 R démarre et arrête l'enregistrement local (dossier enregistrements dans ce répertoire). Les vidéos sont à fréquence fixe estimée ; les horodatages des coordonnées sont mesurés. Ne pas traiter ces coordonnées comme des positions physiques calibrées. En cas de source différente, exécuter `python orbit_integrated.py --camera 1 --backend dshow` avec l'interpréteur de l'environnement. Les options sont aussi visibles avec --help.
 

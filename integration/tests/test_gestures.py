@@ -32,6 +32,9 @@ class GestureTests(unittest.TestCase):
 
     def test_sustained_fist_requests_pause(self):
         self.assertEqual(self.switch.update([fist()], False), (None, True))
+        for t in (.4, .8):
+            self.now = t
+            self.assertEqual(self.switch.update([fist()], False), (None, True))
         self.now = 1.3
         self.assertEqual(self.switch.update([fist()], False), ('pause', True))
         self.assertEqual(self.switch.update([fist()], True), (None, False))
@@ -46,20 +49,35 @@ class GestureTests(unittest.TestCase):
     def test_two_fists_required_to_resume_and_must_be_held(self):
         self.assertEqual(self.switch.update([fist()], True), (None, False))
         self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
+        for t in (.4, .8, 1.2, 1.6):
+            self.now = t
+            self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
         self.now = 2.1
         self.assertEqual(self.switch.update([fist(), fist()], True), ('resume', True))
         self.assertEqual(self.switch.update([fist(), fist()], False), (None, True))
 
     def test_after_pause_fist_must_be_released_before_resume(self):
         self.switch.update([fist()], False)
+        for t in (.4, .8):
+            self.now = t
+            self.switch.update([fist()], False)
         self.now = 1.3
         self.switch.update([fist()], False)
         self.now = 4.
         self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
         self.switch.update([open_hand(), open_hand()], True)
         self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
+        for t in (4.4, 4.8, 5.2, 5.6):
+            self.now = t
+            self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
         self.now = 6.1
         self.assertEqual(self.switch.update([fist(), fist()], True), ('resume', True))
+
+    def test_sparse_observations_do_not_count_as_a_held_gesture(self):
+        self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
+        self.now = 3.
+        self.assertEqual(self.switch.update([fist(), fist()], True), (None, True))
+        self.assertFalse(self.switch.latched)
 
 if __name__ == '__main__': unittest.main()
 

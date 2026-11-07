@@ -7,9 +7,19 @@ import argparse
 import csv
 import json
 import math
+from datetime import datetime
 from pathlib import Path
 
 CSV_COLUMNS = {'image', 'temps_secondes', 'main', 'confiance', 'point', 'x', 'y', 'z'}
+
+
+def _positive_finite_number(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value) and value > 0
+    except OverflowError:
+        return False
 
 
 def validate_streams(metadata, json_lines, csv_rows):
@@ -27,14 +37,27 @@ def validate_streams(metadata, json_lines, csv_rows):
         error('Métadonnées invalides')
     for key in ('largeur', 'hauteur'):
         value = metadata.get(key)
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        if not _positive_finite_number(value):
             error(f'Métadonnée invalide : {key}')
+    fps = metadata.get('fps_video')
+    if not _positive_finite_number(fps):
+        error('Métadonnée invalide : fps_video')
+    try:
+        start = datetime.fromisoformat(metadata['debut'])
+        end = datetime.fromisoformat(metadata['fin'])
+        if start.utcoffset() is None or end.utcoffset() is None or end < start:
+            raise ValueError
+    except (KeyError, TypeError, ValueError, OverflowError):
+        error('Session incomplète : dates de début ou de fin invalides')
 
     for number, line in enumerate(json_lines, 1):
         try:
             record = json.loads(line)
             frame = record['image']
-            timestamp = float(record['temps_secondes'])
+            raw_timestamp = record['temps_secondes']
+            if isinstance(raw_timestamp, bool):
+                raise ValueError
+            timestamp = float(raw_timestamp)
             hands = record['mains']
             if isinstance(frame, bool) or not isinstance(frame, int) or not math.isfinite(timestamp) or timestamp < 0:
                 raise ValueError
@@ -43,6 +66,8 @@ def validate_streams(metadata, json_lines, csv_rows):
             last_time = timestamp
             for hand in hands:
                 label, landmarks = hand['main'], hand['points']
+                if isinstance(hand['confiance'], bool):
+                    raise ValueError
                 confidence = float(hand['confiance'])
                 if not math.isfinite(confidence) or not 0 <= confidence <= 1:
                     raise ValueError
@@ -52,6 +77,8 @@ def validate_streams(metadata, json_lines, csv_rows):
                 for point in landmarks:
                     point_id = point['id']
                     if isinstance(point_id, bool) or not isinstance(point_id, int):
+                        raise ValueError
+                    if any(isinstance(point[axis], bool) for axis in ('x', 'y', 'z')):
                         raise ValueError
                     xyz = tuple(float(point[axis]) for axis in ('x', 'y', 'z'))
                     if not all(math.isfinite(value) for value in xyz):
@@ -79,7 +106,7 @@ def validate_streams(metadata, json_lines, csv_rows):
     if next(rows, None) is not None:
         error('Le CSV contient plus de points que les images JSONL')
     count = metadata.get('images')
-    if count is not None and (isinstance(count, bool) or not isinstance(count, int) or count != frames):
+    if isinstance(count, bool) or not isinstance(count, int) or count != frames:
         error('Le nombre d’images diffère des métadonnées')
     if frames == 0:
         error('Aucune image dans les données')
@@ -95,10 +122,11 @@ def main(argv=None):
              (args.session / 'images.jsonl').open(encoding='utf-8') as frames_file, \
              (args.session / 'points.csv').open(encoding='utf-8', newline='') as points_file:
             rows = csv.DictReader(points_file)
-            if rows.fieldnames is None or not CSV_COLUMNS.issubset(rows.fieldnames):
+            if (rows.fieldnames is None or not CSV_COLUMNS.issubset(rows.fieldnames)
+                    or len(set(rows.fieldnames)) != len(rows.fieldnames)):
                 raise ValueError('En-tête CSV incomplet')
             result = validate_streams(json.load(meta_file), frames_file, rows)
-    except (OSError, ValueError, UnicodeError) as exc:
+    except (OSError, ValueError, UnicodeError, csv.Error) as exc:
         print(json.dumps({'valide': False, 'erreur': type(exc).__name__}, ensure_ascii=False))
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))

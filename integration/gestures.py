@@ -23,10 +23,18 @@ def is_closed_fist(landmarks):
 
 class GestureSwitch:
     """One fist pauses; two fists resume only after a sustained gesture."""
-    def __init__(self, clock=time.monotonic, pause_seconds=1.2, resume_seconds=2.0):
+    def __init__(self, clock=time.monotonic, pause_seconds=1.2, resume_seconds=2.0,
+                 max_gap=.75, pause_observations=4, resume_observations=6):
+        if (pause_seconds <= 0 or resume_seconds <= 0 or max_gap <= 0
+                or pause_observations < 2 or resume_observations < 2):
+            raise ValueError('Invalid gesture timing configuration')
         self.clock, self.pause_seconds, self.resume_seconds = clock, pause_seconds, resume_seconds
+        self.max_gap = max_gap
+        self.pause_observations, self.resume_observations = pause_observations, resume_observations
         self.candidate = None
         self.since = None
+        self.last_seen = None
+        self.observations = 0
         self.latched = False
 
     def update(self, hands, paused):
@@ -35,19 +43,27 @@ class GestureSwitch:
         candidate = ('resume' if paused and len(hands) == 2 and fists == 2 else
                      'pause' if not paused and fists >= 1 else None)
         if candidate is None:
-            self.candidate = self.since = None
+            self.candidate = self.since = self.last_seen = None
+            self.observations = 0
             if fists == 0:
                 self.latched = False
             return None, False
         if self.latched:
             return None, True
         now = self.clock()
-        if candidate != self.candidate:
+        if (candidate != self.candidate or self.last_seen is None
+                or now < self.last_seen or now - self.last_seen > self.max_gap):
             self.candidate, self.since = candidate, now
+            self.observations = 1
+        else:
+            self.observations += 1
+        self.last_seen = now
         required = self.resume_seconds if candidate == 'resume' else self.pause_seconds
-        if now - self.since >= required:
+        minimum = self.resume_observations if candidate == 'resume' else self.pause_observations
+        if now - self.since >= required and self.observations >= minimum:
             self.latched = True
-            self.candidate = self.since = None
+            self.candidate = self.since = self.last_seen = None
+            self.observations = 0
             return candidate, True
         return None, True
 

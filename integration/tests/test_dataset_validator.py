@@ -8,7 +8,8 @@ from dataset_validator import validate_streams, main
 
 
 def sample():
-    meta = {'largeur': 640, 'hauteur': 480, 'images': 1}
+    meta = {'largeur': 640, 'hauteur': 480, 'images': 1, 'fps_video': 30,
+            'debut': '2026-11-06T12:00:00+00:00', 'fin': '2026-11-06T12:00:02+00:00'}
     points = [{'id': i, 'x': .5, 'y': .5, 'z': 0} for i in range(21)]
     records = [{'image': 0, 'temps_secondes': 0., 'mains': [{'main': 'Left', 'confiance': .9, 'points': points}]}]
     rows = [{'image': '0', 'temps_secondes': '0', 'main': 'Left', 'confiance': '.9',
@@ -56,7 +57,9 @@ class DatasetValidatorTests(unittest.TestCase):
 
     def test_many_empty_frames_can_be_streamed(self):
         frames = (json.dumps({'image': i, 'temps_secondes': i / 30, 'mains': []}) for i in range(2000))
-        result = validate_streams({'largeur': 640, 'hauteur': 480, 'images': 2000}, frames, iter(()))
+        meta, _, _ = sample()
+        meta['images'] = 2000
+        result = validate_streams(meta, frames, iter(()))
         self.assertTrue(result['valide'])
         self.assertEqual(result['images'], 2000)
 
@@ -71,6 +74,30 @@ class DatasetValidatorTests(unittest.TestCase):
         records[0]['temps_secondes'] = 2
         for row in rows: row['temps_secondes'] = '2'
         records.append({'image': 1, 'temps_secondes': 1, 'mains': []})
+        self.assertFalse(run(meta, records, rows)['valide'])
+
+    def test_incomplete_session_is_not_valid(self):
+        meta, records, rows = sample()
+        del meta['fin']
+        del meta['images']
+        self.assertFalse(run(meta, records, rows)['valide'])
+
+    def test_boolean_coordinates_and_timestamps_are_rejected(self):
+        meta, records, rows = sample()
+        records[0]['mains'][0]['points'][0]['x'] = True
+        self.assertFalse(run(meta, records, rows)['valide'])
+        meta, records, rows = sample()
+        records[0]['temps_secondes'] = True
+        self.assertFalse(run(meta, records, rows)['valide'])
+
+    def test_reversed_dates_are_rejected(self):
+        meta, records, rows = sample()
+        meta['fin'] = '2026-11-06T11:00:00+00:00'
+        self.assertFalse(run(meta, records, rows)['valide'])
+
+    def test_impossible_fps_is_rejected_without_crashing(self):
+        meta, records, rows = sample()
+        meta['fps_video'] = 10 ** 400
         self.assertFalse(run(meta, records, rows)['valide'])
 
     def test_cli_reads_only_the_three_data_streams(self):
