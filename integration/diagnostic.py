@@ -78,7 +78,10 @@ def main():
     target = args.output_dir / ('diagnostic_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.json')
     target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     print('Rapport local :', target)
-    print('Tests :', 'réussis' if tests['code'] == 0 else 'non exécutés' if tests['code'] is None else 'échecs')
+    state = ('réussis' if tests['code'] == 0 else
+             'incomplets' if tests['code'] is None and tests['sortie'].startswith('TimeoutExpired:') else
+             'non exécutés' if tests['code'] is None else 'échecs')
+    print('Tests :', state)
     print('Caméra réelle et curseur : voir les limites du rapport.')
     if tests['code'] is None:
         return 2  # Incomplet, distinct d'une suite réussie.
@@ -87,4 +90,5 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
 
