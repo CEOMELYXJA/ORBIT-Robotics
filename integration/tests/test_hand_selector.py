@@ -31,4 +31,3 @@ class SelectorTests(unittest.TestCase):
         self.assertEqual(s.select([a, b], None), (None, False))
 
 if __name__ == '__main__': unittest.main()
-

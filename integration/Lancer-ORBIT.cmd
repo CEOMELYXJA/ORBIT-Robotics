@@ -8,22 +8,6 @@ if not exist "%ORBIT_PY%" (
   pause
   exit /b 1
 )
-echo ORBIT et HandsWizard - traitement local
-echo 1. Démarrer : suivi, enregistrement et souris facultative
-echo 2. Diagnostic et tests, sans caméra
-echo 3. Diagnostic avec test de la caméra
-echo Q. Quitter
-choice /c 123Q /n /m "Choix : "
-if errorlevel 4 exit /b
-if errorlevel 3 goto camera
-if errorlevel 2 goto diag
-"%ORBIT_PY%" orbit_integrated.py
-goto end
-:camera
-"%ORBIT_PY%" diagnostic.py --camera
-goto end
-:diag
-"%ORBIT_PY%" diagnostic.py
-:end
-pause
+"%ORBIT_PY%" centre_orbit.py
+if errorlevel 1 pause
 

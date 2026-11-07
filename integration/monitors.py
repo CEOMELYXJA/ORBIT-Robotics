@@ -47,4 +47,3 @@ def map_to_monitors(x, y, monitors, margin=.16, inset=3):
                     round(top + inset + ny * (bottom - top - 1 - 2 * inset)))
         offset -= width
     raise ValueError('Invalid monitor selection')
-

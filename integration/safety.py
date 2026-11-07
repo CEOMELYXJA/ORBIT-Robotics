@@ -11,10 +11,13 @@ class SafetyGuard:
         self.last_frame = clock()
         self.done = threading.Event()
         self.error = None
+        # Starting the application or pressing F8 never arms the mouse by gesture.
+        self.manual_rearm_required = True
 
     def check(self):
         with self.lock:
             if self.key_pressed() or self.clock() - self.last_frame > self.timeout:
+                self.manual_rearm_required = True
                 self.controller.stop()
 
     def frame(self, landmarks):
@@ -22,19 +25,33 @@ class SafetyGuard:
             self.last_frame = self.clock()
             return self.controller.update(landmarks)
 
-    def toggle(self):
+    def toggle(self, *, by_gesture=False):
         with self.lock:
             # Never re-enable after the safety monitor fails or has closed, and
             # never enable while the emergency key is held down.
-            if self.error or self.done.is_set() or self.key_pressed():
+            key_down = self.key_pressed()
+            if key_down:
+                self.manual_rearm_required = True
+            if self.error or self.done.is_set() or key_down:
+                self.controller.stop()
+                return False
+            if by_gesture and self.manual_rearm_required:
                 self.controller.stop()
                 return False
             if self.controller.paused:
                 self.controller.start()
                 self.last_frame = self.clock()
+                if not by_gesture:
+                    self.manual_rearm_required = False
             else:
                 self.controller.stop()
+                if not by_gesture:
+                    self.manual_rearm_required = True
             return True
+
+    def pause(self):
+        with self.lock:
+            self.controller.stop()
 
     def toggle_horizontal(self):
         """Change pointer direction without changing the displayed image."""
@@ -69,5 +86,4 @@ class SafetyGuard:
 
 def windows_f8():
     return bool(ctypes.windll.user32.GetAsyncKeyState(0x77) & 0x8000)
-
 

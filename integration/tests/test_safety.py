@@ -56,6 +56,31 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse(self.guard.toggle())
         self.assertTrue(self.controller.paused)
 
+    def test_emergency_requires_manual_rearm_before_gesture_resume(self):
+        self.assertFalse(self.guard.toggle(by_gesture=True))
+        self.assertTrue(self.guard.toggle())
+        self.key = True
+        self.guard.check()
+        self.key = False
+        self.assertFalse(self.guard.toggle(by_gesture=True))
+        self.assertTrue(self.controller.paused)
+        self.assertTrue(self.guard.toggle())
+        self.assertFalse(self.controller.paused)
+
+    def test_emergency_during_toggle_remains_latched_after_release(self):
+        self.assertTrue(self.guard.toggle())
+        self.key = True
+        self.assertFalse(self.guard.toggle())
+        self.key = False
+        self.assertFalse(self.guard.toggle(by_gesture=True))
+        self.assertTrue(self.controller.paused)
+
+    def test_gesture_pause_can_resume_after_deliberate_start(self):
+        self.guard.toggle()
+        self.guard.pause()
+        self.assertTrue(self.guard.toggle(by_gesture=True))
+        self.assertFalse(self.controller.paused)
+
     def test_cannot_resume_after_monitor_fault_or_shutdown(self):
         self.guard.error = 'monitor fault'
         self.assertFalse(self.guard.toggle())
@@ -66,5 +91,4 @@ class SafetyTests(unittest.TestCase):
         self.assertTrue(self.controller.paused)
 
 if __name__ == '__main__': unittest.main()
-
 

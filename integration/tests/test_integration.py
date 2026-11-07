@@ -20,6 +20,53 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_gestures_are_disabled_until_explicitly_enabled(self):
+        cap = Cap()
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = True
+        gesture = Mock()
+        with patch.object(sys, 'argv', ['orbit']), patch.object(app, 'start_mouse_guard', return_value=guard), \
+             patch.object(app, 'GestureSwitch', return_value=gesture), \
+             patch.object(app.cv2, 'VideoCapture', return_value=cap), \
+             patch.object(app.mp.solutions.hands, 'Hands', return_value=Hands()), \
+             patch.object(app.cv2, 'imshow'), patch.object(app.cv2, 'destroyAllWindows'), \
+             patch.object(app.cv2, 'getWindowProperty', return_value=1), \
+             patch.object(app.cv2, 'waitKey', return_value=ord('q')):
+            self.assertEqual(app.main(), 0)
+        gesture.update.assert_not_called()
+
+    def test_pause_gesture_releases_before_pausing(self):
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = False
+        gestures = Mock()
+        gestures.update.return_value = ('pause', True)
+        self.assertEqual(app.process_hand_control(guard, gestures, [], None, False), 'PAUSE PAR GESTE')
+        guard.frame.assert_called_once_with(None)
+        guard.pause.assert_called_once()
+
+    def test_resume_gesture_requires_open_hand_and_refuses_failure(self):
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = True
+        guard.toggle.return_value = True
+        gestures = Mock()
+        gestures.update.return_value = ('resume', True)
+        self.assertEqual(app.process_hand_control(guard, gestures, [], [1], False), 'OUVRIR LA MAIN')
+        self.assertEqual(guard.frame.call_count, 2)
+        guard.toggle.return_value = False
+        self.assertEqual(app.process_hand_control(guard, gestures, [], [1], False), 'REPRISE IMPOSSIBLE')
+
+    def test_resume_does_not_activate_without_identified_hand(self):
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = True
+        gestures = Mock()
+        gestures.update.return_value = ('resume', True)
+        app.process_hand_control(guard, gestures, [], None, False)
+        guard.toggle.assert_not_called()
+
     def test_tracking_image_scales_without_distortion(self):
         frame = np.zeros((720, 1280, 3), dtype=np.uint8)
         self.assertEqual(app.tracking_image(frame).shape, (360, 640, 3))
@@ -124,5 +171,4 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(all(c.released for c in cameras))
 
 if __name__ == '__main__': unittest.main()
-
 

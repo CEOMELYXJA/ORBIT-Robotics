@@ -33,4 +33,3 @@ class HandSelector:
         self.label = labels[index]
         self.lost = False
         return hands[index].landmark, changed
-

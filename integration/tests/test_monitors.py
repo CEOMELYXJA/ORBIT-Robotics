@@ -19,4 +19,3 @@ class MonitorMappingTests(unittest.TestCase):
                 map_to_monitors(x, .5, screens)
 
 if __name__ == '__main__': unittest.main()
-
