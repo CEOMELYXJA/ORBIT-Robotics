@@ -31,6 +31,14 @@ class VoiceGestureTests(unittest.TestCase):
         self.assertEqual(hand_pose(hand('index').landmark), 'index')
         self.assertIsNone(hand_pose(hand('open').landmark))
         self.assertIsNone(hand_pose([]))
+        self.assertIsNone(hand_pose(42))
+        invalid = hand('v').landmark
+        invalid[3].x = float('inf')
+        self.assertIsNone(hand_pose(invalid))
+
+    def test_invalid_timing_configuration_is_rejected(self):
+        for settings in ({'hold_seconds': float('nan')}, {'max_gap': 0}, {'minimum_observations': True}, {'max_gap': 10 ** 400}):
+            with self.assertRaises(ValueError): VoiceGesturePrototype(**settings)
 
     def test_disabled_by_default(self):
         prototype = VoiceGesturePrototype(clock=lambda: self.now)

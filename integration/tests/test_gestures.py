@@ -29,6 +29,14 @@ class GestureTests(unittest.TestCase):
         self.assertTrue(is_closed_fist(fist().landmark))
         self.assertFalse(is_closed_fist(open_hand().landmark))
         self.assertFalse(is_closed_fist([]))
+        self.assertFalse(is_closed_fist(42))
+        invalid = fist().landmark
+        invalid[3].x = float('nan')
+        self.assertFalse(is_closed_fist(invalid))
+
+    def test_invalid_timing_configuration_is_rejected(self):
+        for settings in ({'pause_seconds': float('nan')}, {'max_gap': -1}, {'resume_observations': True}, {'max_gap': 10 ** 400}):
+            with self.assertRaises(ValueError): GestureSwitch(**settings)
 
     def test_sustained_fist_requests_pause(self):
         self.assertEqual(self.switch.update([fist()], False), (None, True))

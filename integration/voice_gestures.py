@@ -5,14 +5,17 @@ validated integration would be required to trigger an application shortcut.
 """
 import math
 import time
+from gestures import positive_finite
 
 
 def hand_pose(landmarks):
     """Return 'v', 'index' or None for conservative two-dimensional poses."""
-    if landmarks is None or len(landmarks) < 21:
+    if landmarks is None:
         return None
     try:
-        if not all(math.isfinite(v) for point in landmarks for v in (point.x, point.y)):
+        if len(landmarks) < 21:
+            return None
+        if not all(not isinstance(v, bool) and math.isfinite(v) for point in landmarks for v in (point.x, point.y)):
             return None
         wrist = landmarks[0]
         distance = lambda point: math.hypot(point.x - wrist.x, point.y - wrist.y)
@@ -30,7 +33,7 @@ def hand_pose(landmarks):
             return 'v'
         if states == ['extended', 'curled', 'curled', 'curled']:
             return 'index'
-    except (AttributeError, TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError, OverflowError):
         return None
     return None
 
@@ -39,7 +42,9 @@ class VoiceGesturePrototype:
     """Emit at most one suggestion per deliberate two-hand gesture."""
     def __init__(self, enabled=False, clock=time.monotonic, hold_seconds=2.5,
                  max_gap=.75, minimum_observations=6, release_seconds=.5):
-        if hold_seconds <= 0 or max_gap <= 0 or minimum_observations < 2 or release_seconds <= 0:
+        if (not all(positive_finite(v) for v in (hold_seconds, max_gap, release_seconds))
+                or not isinstance(minimum_observations, int) or isinstance(minimum_observations, bool)
+                or minimum_observations < 2):
             raise ValueError('Invalid gesture timing')
         self.enabled, self.clock = enabled, clock
         self.hold_seconds, self.max_gap = hold_seconds, max_gap
