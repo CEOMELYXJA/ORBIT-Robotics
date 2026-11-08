@@ -1,0 +1,13 @@
+{
+  "name": "ORBIT Robotics",
+  "short_name": "ORBIT",
+  "description": "Carte spatiale pour explorer et organiser ses projets et outils.",
+  "lang": "fr-CA",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e16",
+  "theme_color": "#0a0d15",
+  "icons": []
+}
+

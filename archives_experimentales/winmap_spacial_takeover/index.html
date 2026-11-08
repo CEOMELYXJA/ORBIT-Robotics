@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#080c11" />
+  <meta name="description" content="winmap spacial takeover — un bureau moléculaire vivant." />
+  <title>winmap spacial takeover · bureau moléculaire</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="universe" id="universe" aria-label="Bureau moléculaire interactif">
+    <canvas id="space" aria-label="Scène spatiale 3D"></canvas>
+    <div class="space-noise" aria-hidden="true"></div>
+    <div id="nodeLayer" class="node-layer"></div>
+    <div class="edge-vignette" aria-hidden="true"></div>
+
+    <header class="top-rail">
+      <button id="menuButton" class="menu-trigger" title="Ouvrir la sphère de commande" aria-label="Ouvrir le menu sphérique de l’espace" aria-expanded="false" aria-controls="spaceMenu">
+        <span class="menu-sphere-mark" aria-hidden="true"><i></i><i></i><i></i><b></b></span>
+      </button>
+      <button id="settingsButton" class="settings-trigger" type="button" title="Ouvrir la sphère des réglages" aria-label="Ouvrir les réglages sphériques en 3D" aria-expanded="false" aria-controls="spaceMenu">
+        <span class="settings-sphere-mark" aria-hidden="true"><i></i><i></i><b>⚙</b></span>
+      </button>
+      <button id="zoomOutButton" class="rail-icon zoom-out-button" type="button" title="Remonter d’un écosystème" aria-label="Remonter d’un écosystème">←</button>
+      <nav id="breadcrumb" class="breadcrumb" aria-label="Emplacement dans l’espace"></nav>
+      <span class="rail-spacer"></span>
+    </header>
+
+    <section id="spaceMenu" class="space-menu hidden" aria-label="Sphère de commande 3D de l’espace" aria-live="polite"></section>
+
+    <div class="scene-heading" aria-live="polite">
+      <span class="scene-kicker"><span id="spaceCode">SYSTÈME 00</span><i></i><span id="spaceMode">ESPACE LOCAL</span></span>
+      <h1 id="sceneTitle">Le Bureau</h1>
+      <p id="sceneSubtitle">Un monde à manipuler.</p>
+    </div>
+
+    <div id="focusDial" class="focus-dial" aria-hidden="true"><span></span><i></i></div>
+
+    <div id="sceneReadout" class="scene-readout">
+      <span class="readout-line"><i></i><span id="objectCount">00 OBJETS EN ORBITE</span></span>
+      <span id="coordinateReadout">X 00.00&nbsp;&nbsp; Y 00.00&nbsp;&nbsp; Z 00.00</span>
+    </div>
+
+    <section id="objectInspector" class="object-inspector hidden" aria-live="polite">
+      <div class="inspector-cap"><span id="inspectorClass">DOSSIER · ATOME</span><button id="inspectorClose" aria-label="Fermer les détails">×</button></div>
+      <div class="inspector-heading"><span id="inspectorGlyph" class="inspector-glyph">◈</span><div><h2 id="inspectorName">Documents</h2><span id="inspectorDescription">Dossier · 4 atomes liés</span></div></div>
+      <div id="inspectorData" class="inspector-data"></div>
+      <div id="inspectorActions" class="inspector-actions"></div>
+    </section>
+
+    <div id="dropPrompt" class="drop-prompt hidden"><span class="drop-pulse"></span><span id="dropPromptText">Relâcher pour lier les atomes</span></div>
+
+    <div id="walkHud" class="walk-hud hidden" aria-live="polite"><span class="walk-reticle">＋</span><div><strong id="walkTitle">MODE VEILLE</strong><small>W A S D · avancer et se déplacer &nbsp;|&nbsp; glisser pour regarder</small></div><button id="walkExitButton">Quitter <kbd>ESC</kbd></button></div>
+    <footer class="bottom-rail">
+      <div class="physics-tools"><span class="motion-value">MODE SPATIAL</span></div>
+      <div class="interaction-hint"><span class="mouse-glyph">◉</span><span>GLISSER <i>POUR ORBITER</i></span><span class="hint-divider"></span><span>MOLETTE <i>POUR CHANGER D’ÉCHELLE</i></span></div>
+      <div class="bottom-right"><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
+    </footer>
+  </main>
+
+  <dialog id="searchDialog" class="glass-dialog search-dialog">
+    <div class="dialog-topline"><span>RÉSONANCE · RECHERCHE</span><button data-close="searchDialog" aria-label="Fermer">×</button></div>
+    <label class="search-input-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="Nom, chemin, extension, application…" autocomplete="off" /><kbd>ESC</kbd></label>
+    <div class="search-scope"><span>OBJETS DU SYSTÈME</span><span id="searchResultCount">0 CORRESPONDANCE</span></div>
+    <div id="searchResults" class="search-results"></div>
+    <div class="dialog-footnote"><kbd>↑</kbd><kbd>↓</kbd> NAVIGUER <span></span><kbd>↵</kbd> OUVRIR / FOCUSER</div>
+  </dialog>
+
+  <dialog id="connectDialog" class="glass-dialog connect-dialog">
+    <div class="dialog-topline"><span>OUVERTURE D’UN ESPACE LOCAL</span><button data-close="connectDialog" aria-label="Fermer">×</button></div>
+    <div class="dialog-emblem">◌</div>
+    <h2>Choisir un système.</h2>
+    <p>winmap lit seulement le dossier que tu choisis. Les noms et la hiérarchie restent sur cet appareil. Rien n’est téléversé.</p>
+    <div class="permission-rows"><span><i>01</i> Tu choisis un dossier racine</span><span><i>02</i> Les sous-dossiers prennent place en orbite</span><span><i>03</i> Dépose un élément Windows sur un dossier connecté pour le copier après confirmation; l’original reste en place</span><span><i>04</i> L’écriture est demandée seulement après confirmation</span></div>
+    <button id="chooseDirectoryButton" class="dialog-primary">SÉLECTIONNER LE DOSSIER <span>↗</span></button>
+      <small id="directorySupportNote">Accès local pris en charge dans Edge ou Chrome sur HTTPS ou en contexte local sécurisé.</small>
+  </dialog>
+
+  <dialog id="moveDialog" class="glass-dialog move-dialog">
+    <div class="dialog-topline"><span>TRANSFERT ORBITAL</span><button data-close="moveDialog" aria-label="Fermer">×</button></div>
+    <div class="move-route"><span id="moveSourceGlyph" class="route-orb">◈</span><div class="route-line"><i></i><i></i><i></i><b>→</b></div><span id="moveTargetGlyph" class="route-orb destination-orb">◈</span></div>
+    <h2 id="moveTitle">Déplacer cet objet&nbsp;?</h2>
+    <p id="moveDescription">L’objet changera de dossier et d’orbite.</p>
+    <div id="moveModeNote" class="move-mode-note"><span>◉</span><div><strong>Déplacement dans le modèle spatial</strong><small>Le disque n’est pas modifié dans cette démonstration.</small></div></div>
+    <div class="dialog-buttons"><button data-close="moveDialog" class="dialog-secondary">Annuler</button><button id="confirmMoveButton" class="dialog-primary">CONFIRMER LE LIEN <span>↗</span></button></div>
+  </dialog>
+
+  <dialog id="filePreviewDialog" class="glass-dialog file-preview-dialog">
+    <div class="dialog-topline"><span>APERÇU LOCAL · LECTURE SEULE</span><button data-close="filePreviewDialog" aria-label="Fermer l’aperçu">×</button></div>
+    <h2 id="filePreviewTitle">Aperçu du fichier</h2>
+    <p id="filePreviewMeta" class="file-preview-meta"></p>
+    <p id="filePreviewState" class="file-preview-state">Lecture du fichier…</p>
+    <pre id="filePreviewText" class="file-preview-text hidden"></pre>
+    <img id="filePreviewImage" class="file-preview-image hidden" alt="Aperçu du fichier local" />
+  </dialog>
+
+  <dialog id="createDialog" class="glass-dialog create-dialog">
+    <div class="dialog-topline"><span>FORMER UN NOUVEL ATOME</span><button data-close="createDialog" aria-label="Fermer">×</button></div>
+    <div class="create-type"><i id="createGlyph">◈</i><span id="createKind">NOUVEAU DOSSIER</span></div>
+    <h2 id="createTitle">Nommer l’objet.</h2>
+    <form id="createForm">
+      <label for="createName">NOM DE L’ATOME</label><input id="createName" maxlength="48" placeholder="Ex. Idées en orbite" required />
+      <div class="color-row"><span>CHARGE</span><div class="color-options"><label><input type="radio" name="atomColor" value="#81d8c4" checked><i style="--swatch:#81d8c4"></i></label><label><input type="radio" name="atomColor" value="#a99bff"><i style="--swatch:#a99bff"></i></label><label><input type="radio" name="atomColor" value="#ffb27c"><i style="--swatch:#ffb27c"></i></label><label><input type="radio" name="atomColor" value="#71b9f4"><i style="--swatch:#71b9f4"></i></label><label><input type="radio" name="atomColor" value="#ef8bad"><i style="--swatch:#ef8bad"></i></label></div></div>
+      <small class="create-scope-note">Crée un objet dans la carte spatiale. Aucun fichier n’est écrit sur le disque.</small>
+      <button class="dialog-primary" type="submit">CRÉER DANS L’ORBITE <span>↗</span></button>
+    </form>
+  </dialog>
+
+  <dialog id="renameDialog" class="glass-dialog rename-dialog">
+    <div class="dialog-topline"><span>RÉSONANCE DU NOM</span><button data-close="renameDialog" aria-label="Fermer">×</button></div>
+    <h2>Renommer l’atome.</h2>
+    <form id="renameForm"><label for="renameInput">NOUVELLE IDENTITÉ</label><input id="renameInput" maxlength="48" required /><button class="dialog-primary" type="submit">ENREGISTRER <span>↗</span></button></form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <input id="fallbackDirectory" type="file" webkitdirectory multiple hidden />
+  <script src="space-engine.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
+

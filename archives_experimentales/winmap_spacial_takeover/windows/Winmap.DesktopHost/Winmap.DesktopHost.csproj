@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Winmap.DesktopHost</AssemblyName>
+    <RootNamespace>Winmap.DesktopHost</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\index.html;..\..\styles.css;..\..\app.js;..\..\space-engine.js;..\..\manifest.webmanifest;..\..\icon.svg;..\..\sw.js">
+      <Link>wwwroot\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <WinmapWebAsset Include="..\..\index.html;..\..\styles.css;..\..\app.js;..\..\space-engine.js;..\..\manifest.webmanifest;..\..\icon.svg;..\..\sw.js" />
+  </ItemGroup>
+
+  <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Reference.Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyWinmapAssetsToPublishDirectory" AfterTargets="Publish">
+    <MakeDir Directories="$(PublishDir)wwwroot" />
+    <Copy SourceFiles="@(WinmapWebAsset)" DestinationFolder="$(PublishDir)wwwroot" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
+

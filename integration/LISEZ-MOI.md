@@ -2,7 +2,9 @@
 
 Double-cliquer sur le lanceur ORBIT du Bureau : le centre de commande s'ouvre. « Ouvrir le suivi avec Camo » démarre la fenêtre de suivi ; « Diagnostic » lance les vérifications locales sans caméra. « Diagnostic + caméra » ajoute un essai de la caméra, sans conserver d'image, après fermeture du suivi. Le programme utilise l'environnement Python 3.11 déjà installé ; Installer-ORBIT.cmd peut créer un environnement séparé si nécessaire.
 
-« Ouvrir l’espace spatial WINMAP » présente les zones Fenêtres, Agents et Tâches. C’est un aperçu indépendant en perspective : il ne commande pas encore de véritables fenêtres ni agents. Fermer avec Échap, le bouton Fermer ou la croix.
+« Ouvrir mon espace spatial » ouvre l’interface Winmap dans une fenêtre Edge locale, avec un profil séparé. Les projets et objets affichés sont des exemples ou des éléments créés dans la carte. Le suivi ORBIT peut déplacer le curseur dans cette fenêtre comme dans les autres applications. Fermer l’espace avec Alt+F4 ou la croix. Les commandes spatiales par gestes dédiés et les liens avec de véritables agents ou fenêtres ne sont pas encore intégrés.
+
+Dans cette intégration, la connexion de dossiers, les aperçus de fichiers réels et les copies ou déplacements sur disque sont désactivés. L’original Winmap reste conservé séparément. Le petit aperçu précédent est conservé dans `winmap_host.py` mais n’est plus le bouton principal.
 
 Laisser Camo Studio et l'iPhone connectés, puis fermer toute autre instance ORBIT avant le lancement. Une image grise Camo ou noire ne prouve pas un flux en direct. P active ou met en pause la souris ; F8 demande la mise en pause même si une autre fenêtre a le focus ; Q ferme la fenêtre. La souris démarre en pause. L'image conserve par défaut l'orientation reçue de Camo ; M active ou désactive l'effet miroir. H inverse uniquement le sens horizontal du curseur, sans modifier l'image.
 
@@ -23,4 +25,5 @@ Après validation, `data_quality.py CHEMIN_DE_SESSION` peut résumer la durée, 
 R démarre et arrête l'enregistrement local (dossier enregistrements dans ce répertoire). Les vidéos sont à fréquence fixe estimée ; les horodatages des coordonnées sont mesurés. Ne pas traiter ces coordonnées comme des positions physiques calibrées. En cas de source différente, exécuter `python orbit_integrated.py --camera 1 --backend dshow` avec l'interpréteur de l'environnement. Les options sont aussi visibles avec --help.
 
 Le mode iPhone gyroscope d'origine demeure séparé et inchangé. Le traitement MediaPipe est sur CPU ; un GPU NVIDIA n'implique pas que cette version l'utilise. Aucun enregistrement existant n'a été déplacé ou supprimé.
+
 

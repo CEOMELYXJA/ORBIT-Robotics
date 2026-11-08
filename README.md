@@ -1,7 +1,8 @@
 # ORBIT Robotics
 
-ORBIT Robotics est une plateforme expérimentale pour explorer le suivi des mains, le contrôle gestuel et les interfaces spatiales sous Windows.
+ORBIT Robotics est un projet expérimental Windows de suivi des mains et de contrôle gestuel. Il permet notamment de piloter le curseur à partir d’une caméra.
 
-Le logiciel réunit un centre de commande, le suivi des mains par caméra et un contrôle facultatif du curseur. Un premier espace spatial WINMAP présente les zones prévues pour les fenêtres, les agents et les tâches.
+Winmap Spacial Takeover explore une autre partie du même objectif : un espace visuel navigable où organiser projets, outils et tâches. Les deux projets sont réunis pour utiliser cet espace depuis ORBIT et, à terme, le parcourir avec les mains.
 
-L’application et les instructions de démarrage se trouvent dans `integration/`. Les versions précédentes sont conservées dans `archives_experimentales/`.
+Le centre ORBIT ouvre désormais la version locale de l’espace spatial. Le curseur de suivi peut être utilisé comme une souris dans cet espace ; les commandes gestuelles propres à l’espace et la connexion aux véritables fenêtres et agents restent à développer. L’intégration et ses instructions se trouvent dans `integration/`. Les versions précédentes sont conservées pour référence.
+

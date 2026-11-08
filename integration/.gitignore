@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 .mplconfig/
+.orbit-spatial-profile/
 enregistrements/
 recordings/
 captures/
@@ -33,3 +34,4 @@ rapports/
 *.[rR][aA][rR]
 *.[jJ][sS][oO][nN][lL]
 *.[cC][sS][vV]
+

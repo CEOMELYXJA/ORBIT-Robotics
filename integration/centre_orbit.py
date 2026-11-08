@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tkinter as tk
 from tkinter import messagebox
+from spatial_launcher import launch_spatial
 
 
 ROOT = Path(__file__).resolve().parent
@@ -54,7 +55,7 @@ class OrbitCenter:
                   font=('Segoe UI', 11), padx=14, pady=10).pack(side='left', padx=(12, 0))
         tk.Button(actions, text='Diagnostic + caméra', command=lambda: self.run_diagnostic(True),
                   font=('Segoe UI', 10), padx=10, pady=10).pack(side='left', padx=(8, 0))
-        tk.Button(content, text='Ouvrir l’espace spatial WINMAP', command=self.open_space,
+        tk.Button(content, text='Ouvrir mon espace spatial', command=self.open_space,
                   font=('Segoe UI', 11, 'bold'), padx=14, pady=6).pack(anchor='w', pady=(12, 0))
         tk.Label(content, textvariable=self.status, font=('Segoe UI', 10, 'bold'),
                  fg='#8ce4c4', bg='#0c1726', wraplength=650, justify='left').pack(anchor='w', pady=(12, 16))
@@ -96,14 +97,11 @@ class OrbitCenter:
         if self.space is not None and self.space.poll() is None:
             self.status.set('L’espace spatial est déjà ouvert.')
             return
-        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
         try:
-            self.space = subprocess.Popen([sys.executable, str(ROOT / 'winmap_host.py')], cwd=str(ROOT),
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                          creationflags=flags)
+            self.space = launch_spatial()
             self.status.set('Ouverture de l’espace spatial…')
-        except OSError:
-            messagebox.showerror('ORBIT', 'Impossible d’ouvrir l’espace spatial.')
+        except OSError as exc:
+            messagebox.showerror('ORBIT', f'Impossible d’ouvrir l’espace spatial : {exc}')
 
     def run_diagnostic(self, with_camera=False):
         if self.diagnostic is not None and self.diagnostic.poll() is None:
@@ -153,3 +151,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
