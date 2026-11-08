@@ -1,7 +1,7 @@
 /* Association future à des applications connues : aucune action Windows ici. */
 (function (root) {
   'use strict';
-  const supported = Object.freeze(['calculatrice', 'bloc_notes']);
+  const supported = Object.freeze(['calculatrice', 'bloc_notes', 'paint']);
   function makeBinding(nodeId, applicationId) {
     if (typeof nodeId !== 'string' || !nodeId.trim() || nodeId.length > 128) throw new Error('Objet spatial invalide.');
     if (!supported.includes(applicationId)) throw new Error('Application non prise en charge.');

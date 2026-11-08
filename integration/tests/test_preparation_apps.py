@@ -32,6 +32,12 @@ class PreparedAppsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ApplicationLauncher(windows_directory=r'C:\Windows-alternative')
 
+    def test_paint_uses_only_the_predefined_executable(self):
+        app = ApplicationLauncher(enabled=True, runner=self.runner)
+        with patch('preparation.applications_windows.os.name', 'nt'):
+            self.assertTrue(app.open('paint', user_requested=True).ok)
+        self.runner.assert_called_once_with([r'C:\Windows\System32\mspaint.exe'], shell=False, close_fds=True)
+
 
 if __name__ == '__main__':
     unittest.main()

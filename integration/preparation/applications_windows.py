@@ -13,6 +13,7 @@ from typing import Callable
 APPLICATIONS = {
     'calculatrice': ('Calculatrice Windows', 'calc.exe'),
     'bloc_notes': ('Bloc-notes Windows', 'notepad.exe'),
+    'paint': ('Paint Windows', 'mspaint.exe'),
 }
 
 
