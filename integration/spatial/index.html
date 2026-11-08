@@ -57,10 +57,16 @@
     <footer class="bottom-rail">
       <div class="physics-tools"><span class="motion-value">MODE SPATIAL</span></div>
       <div class="interaction-hint"><span class="mouse-glyph">◉</span><span>GLISSER <i>POUR ORBITER</i></span><span class="hint-divider"></span><span>MOLETTE <i>POUR CHANGER D’ÉCHELLE</i></span></div>
-      <div class="bottom-right"><button id="agentsButton" class="hand-mode-button" type="button">Agents locaux</button><button id="handModeButton" class="hand-mode-button" type="button" aria-pressed="true" title="En mode main, les planètes ne se déplacent pas accidentellement">✋ Mode main : activé</button><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
+      <div class="bottom-right"><button id="toolsButton" class="hand-mode-button" type="button">Mes outils</button><button id="agentsButton" class="hand-mode-button" type="button">Agents locaux</button><button id="handModeButton" class="hand-mode-button" type="button" aria-pressed="true" title="En mode main, les planètes ne se déplacent pas accidentellement">✋ Mode main : activé</button><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
     </footer>
   </main>
 
+  <dialog id="toolsDialog" class="glass-dialog tools-dialog" aria-labelledby="toolsTitle">
+    <div class="dialog-topline"><span id="toolsTitle">MES OUTILS ORBIT</span><button data-close="toolsDialog" aria-label="Fermer">×</button></div>
+    <section><h2>Calculatrice</h2><div class="tool-calc"><input id="toolA" type="number" step="any" aria-label="Premier nombre" placeholder="Nombre"><select id="toolOperator" aria-label="Opération"><option value="+">+</option><option value="-">−</option><option value="*">×</option><option value="/">÷</option></select><input id="toolB" type="number" step="any" aria-label="Deuxième nombre" placeholder="Nombre"><button id="toolCalculate" type="button">Calculer</button></div><p id="toolCalcResult" aria-live="polite">Résultat ici</p></section>
+    <section><h2>Notes</h2><textarea id="toolNote" rows="4" aria-label="Notes locales" placeholder="Écris tes notes ici..."></textarea><small id="toolNoteStatus" aria-live="polite">Sauvegarde locale automatique.</small></section>
+    <section><h2>Dessin</h2><canvas id="toolCanvas" width="640" height="240" aria-label="Zone de dessin" tabindex="0"></canvas><small id="toolDrawStatus" aria-live="polite">Dessine avec ta souris ou ton pointeur. Sauvegarde locale.</small></section>
+  </dialog>
   <dialog id="agentsDialog" class="glass-dialog search-dialog" aria-labelledby="agentsTitle">
     <div class="dialog-topline"><span id="agentsTitle">AGENTS LOCAUX · CONTRÔLES</span><button data-close="agentsDialog" aria-label="Fermer">×</button></div>
     <p>Huit outils exécutent des vérifications locales. Ils ne sont pas des agents IA autonomes.</p>
@@ -125,6 +131,7 @@
   <input id="fallbackDirectory" type="file" webkitdirectory multiple hidden />
   <script src="space-engine.js" defer></script>
   <script src="agents.js" defer></script>
+  <script src="outils.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

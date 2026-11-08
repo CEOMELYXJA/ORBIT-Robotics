@@ -1577,6 +1577,8 @@
   function formatTime(seconds) { return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }
 
   function setupControls() {
+    try { window.OrbitTools.setup(document, window.localStorage); }
+    catch (error) { console.error(error); el('toolsButton').disabled = true; showToast('Les outils locaux sont temporairement indisponibles.'); }
     el('agentsButton').addEventListener('click', () => el('agentsDialog').showModal());
     for (const agent of window.OrbitAgents.agents) {
       const button = document.createElement('button');
@@ -1680,8 +1682,10 @@
     document.addEventListener('pointercancel', cancelGesture);
     window.addEventListener('blur', cancelGesture);
     document.addEventListener('keydown', event => {
+      if (el('toolsDialog').open || el('agentsDialog').open) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); showSearch(); }
       if (event.key === 'Escape') {
+        if (el('toolsDialog').open) return;
         if (el('agentsDialog').open) return;
         if (walkMode) { exitWalkMode(); return; }
         if (el('searchDialog').open || el('connectDialog').open || el('moveDialog').open || el('filePreviewDialog').open || el('createDialog').open || el('renameDialog').open) return;

@@ -187,6 +187,15 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--mint); outl
 .agents-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
 .agents-list button { color: #e6fff7; background: #15383d; border: 1px solid #658f89; border-radius: 8px; padding: 12px; text-align: left; cursor: pointer; }
 #agentResult { min-height: 45px; color: #dcf7ef; line-height: 1.4; }
+.tools-dialog { width: min(760px, 92vw); max-height: 88vh; overflow-y: auto; color: #eaf8f5; }
+.tools-dialog h2 { font: 600 16px system-ui, sans-serif; margin: 14px 0 8px; }
+.tools-dialog section { margin-bottom: 12px; }
+.tools-dialog textarea { width: 100%; min-height: 90px; resize: vertical; color: #f3fffb; background: #10282d; border: 1px solid #658f89; border-radius: 8px; padding: 10px; box-sizing: border-box; }
+.tools-dialog small { display: block; margin-top: 4px; color: #c7ddd7; }
+.tool-calc { display: flex; gap: 8px; flex-wrap: wrap; }
+.tool-calc input { width: 110px; }
+.tool-calc input, .tool-calc select, .tool-calc button { padding: 8px; border-radius: 6px; }
+#toolCanvas { width: 100%; max-width: 640px; height: 200px; background: #10282d; border: 1px solid #658f89; border-radius: 8px; touch-action: none; cursor: crosshair; }
 .save-status { display: flex; align-items: center; gap: 6px; color: #64797a; font: 7px var(--mono); letter-spacing: .5px; }
 .save-status i { width: 5px; height: 5px; border-radius: 50%; background: #76d2ad; box-shadow: 0 0 7px #76d2ad9c; }
 .save-status.saving i { background: var(--gold); box-shadow: 0 0 7px var(--gold); }
