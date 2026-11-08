@@ -158,9 +158,14 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--mint); outl
 .inspector-heading h2 { max-width: 226px; margin: 0 0 3px; overflow: hidden; color: #e7f1ee; font-size: 13px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
 .inspector-heading div>span { color: #7f9392; font-size: 8px; }
 .inspector-data { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 0 43px; }
+.inspector-relations { margin: 12px 0 0; white-space: pre-line; color: #d6e8e3; font: 13px/1.5 system-ui, sans-serif; overflow-wrap: anywhere; }
+.object-inspector { width: min(360px, calc(100vw - 48px)); max-height: min(65vh, 520px); overflow-y: auto; }
+.inspector-heading h2 { font-size: 16px; }
+.inspector-heading div>span { font-size: 11px; line-height: 1.35; }
 .data-chip { padding: 4px 6px; border: 1px solid #cee4e115; border-radius: 5px; color: #899d9b; font: 7px var(--mono); }
 .inspector-actions { display: flex; flex-wrap: wrap; gap: 5px; margin: 11px 0 0 43px; }
 .inspector-actions button { display: inline-flex; align-items: center; gap: 5px; min-height: 25px; padding: 0 7px; border: 1px solid #d5e7e319; border-radius: 6px; background: #c9e3df09; color: #b0c4c1; font-size: 8px; }
+.inspector-actions button { min-height: 36px; padding: 4px 10px; font-size: 12px; }
 .inspector-actions button:hover { border-color: #81d8c456; background: #81d8c40e; color: #f0f8f6; }
 .inspector-actions button.primary-action { border-color: #81d8c443; background: #81d8c411; color: #aee3d4; }
 .inspector-actions button:disabled { opacity: .42; cursor: default; }

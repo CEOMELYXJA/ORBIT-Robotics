@@ -734,12 +734,13 @@
     if (n.kind === 'file' && n.size != null) chips.push(sizeLabel(n.size));
     if (n.kind === 'task') { chips.push(`${taskProgress(n)}% TERMINÉ`); chips.push('SUIVI LOCAL · MANUEL'); }
     el('inspectorData').innerHTML = chips.map(x => `<span class="data-chip">${esc(x)}</span>`).join('');
+    el('inspectorRelations').textContent = window.OrbitRelations.describe(n, state.nodes);
     el('inspectorActions').innerHTML = actionsFor(n).map(a => `<button data-action="${esc(a.action)}" class="${a.primary ? 'primary-action' : ''}" ${a.disabled ? 'disabled title="${esc(a.disabled)}"' : ''}><span>${esc(a.glyph || '↗')}</span>${esc(a.label)}</button>`).join('');
   }
   function actionsFor(n) {
-    if (n.kind === 'root') return [{ action: 'create', label: 'Ajouter un atome', glyph: '＋', primary: true }, { action: 'connect', label: 'Connecter un dossier', glyph: '◈' }];
+    if (n.kind === 'root') return [{ action: 'enter', label: 'Explorer cet espace', glyph: '◎', primary: true }, { action: 'create', label: 'Ajouter un atome', glyph: '＋' }];
     if (n.kind === 'folder') {
-      const actions = [{ action: 'enter', label: 'Entrer dans l’orbite', glyph: '◎', primary: true }, { action: 'create', label: 'Créer ici', glyph: '＋' }];
+      const actions = [{ action: 'enter', label: 'Explorer cet espace', glyph: '◎', primary: true }, { action: 'create', label: 'Créer ici', glyph: '＋' }];
       if (n.externalRoot && n.sourceRootId && !n.readOnlyPreview) actions.push({ action: 'refresh-root', label: 'Actualiser depuis le disque', glyph: '↻' });
       actions.push({ action: 'rename', label: 'Renommer', glyph: '✎', disabled: n.sourceRootId && !n.readOnlyPreview ? 'Le renommage réel sera confirmé dans une prochaine étape.' : '' });
       return actions;
@@ -939,10 +940,10 @@
     if (walkMode) exitWalkMode(false);
     ensureScaleChildren(n);
     rebuildIndex();
-    state.focusId = n.id; state.selectedId = n.id; inspector.classList.add('hidden');
+    state.focusId = n.id; state.selectedId = n.id;
     const anchor = cameraAnchor(n), pos = worldPosition(anchor.id, performance.now() / 1000, new Map());
     engine.camera.mode = 'orbit'; engine.camera.targetGoal = [...pos]; engine.camera.distanceGoal = scopeDistance(n);
-    saveState(); renderInspector('');
+    saveState(); renderInspector(n.id);
   }
   function scopeDistance(n) { if (sameLevelEcosystems(n).length > 1) return 15.5; return n?.id === 'root' ? 13.3 : n?.id === 'environment' || n?.generatedScope && n.parentId == null ? 15.5 : 8.2; }
   function goRoot() { enterNode('root'); engine.camera.distanceGoal = 13.3; saveState(); }
@@ -956,9 +957,8 @@
   }
   function activateNode(id) {
     const n = node(id); if (!n) return;
-    if (id === state.focusId) { zoomOutScope(); return; }
-    if (n.kind === 'root' || n.kind === 'folder') enterNode(id);
-    else { if (walkMode) exitWalkMode(false); selectNode(id); }
+    if (walkMode) exitWalkMode(false);
+    selectNode(id);
   }
   function enterWalkMode() {
     const focus = node(state.focusId) || node('root'); if (!focus || !engine) return;

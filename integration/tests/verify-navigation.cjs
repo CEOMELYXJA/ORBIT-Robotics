@@ -96,11 +96,11 @@ sandbox.gesture = null;
 
 state.focusId = 'root';
 sandbox.api.onAtomClick({ detail: 1, target: { closest: () => null } }, 'docs');
-assert.deepEqual(actions.pop(), ['enter', 'docs'], 'single click on a folder should enter it');
+assert.deepEqual(actions.pop(), ['select', 'docs'], 'single click on a folder should show its information');
 
 state.focusId = 'docs';
 sandbox.api.onAtomClick({ detail: 1, target: { closest: () => null } }, 'docs');
-assert.deepEqual(actions.pop(), ['out'], 'single click on the focused center should zoom outward');
+assert.deepEqual(actions.pop(), ['select', 'docs'], 'clicking the focused center should keep its information rather than zoom out');
 
 state.focusId = 'root';
 sandbox.api.onAtomClick({ detail: 1, target: { closest: () => null } }, 'linked-app');
