@@ -182,6 +182,11 @@ button:focus-visible, input:focus-visible { outline: 1px solid var(--mint); outl
 .mouse-glyph { color: #98b6b0; font-size: 12px; }
 .hint-divider { width: 1px; height: 10px; margin: 0 4px; background: #bfd8d41e; }
 .bottom-right { gap: 11px; }
+.hand-mode-button { border: 1px solid #81d8c4; background: #112d32; color: #e6fff7; border-radius: 14px; padding: 8px 12px; font: 600 12px system-ui, sans-serif; cursor: pointer; }
+.hand-mode-button:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+.agents-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.agents-list button { color: #e6fff7; background: #15383d; border: 1px solid #658f89; border-radius: 8px; padding: 12px; text-align: left; cursor: pointer; }
+#agentResult { min-height: 45px; color: #dcf7ef; line-height: 1.4; }
 .save-status { display: flex; align-items: center; gap: 6px; color: #64797a; font: 7px var(--mono); letter-spacing: .5px; }
 .save-status i { width: 5px; height: 5px; border-radius: 50%; background: #76d2ad; box-shadow: 0 0 7px #76d2ad9c; }
 .save-status.saving i { background: var(--gold); box-shadow: 0 0 7px var(--gold); }

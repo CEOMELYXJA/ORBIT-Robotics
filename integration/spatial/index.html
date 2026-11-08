@@ -57,10 +57,16 @@
     <footer class="bottom-rail">
       <div class="physics-tools"><span class="motion-value">MODE SPATIAL</span></div>
       <div class="interaction-hint"><span class="mouse-glyph">◉</span><span>GLISSER <i>POUR ORBITER</i></span><span class="hint-divider"></span><span>MOLETTE <i>POUR CHANGER D’ÉCHELLE</i></span></div>
-      <div class="bottom-right"><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
+      <div class="bottom-right"><button id="agentsButton" class="hand-mode-button" type="button">Agents locaux</button><button id="handModeButton" class="hand-mode-button" type="button" aria-pressed="true" title="En mode main, les planètes ne se déplacent pas accidentellement">✋ Mode main : activé</button><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
     </footer>
   </main>
 
+  <dialog id="agentsDialog" class="glass-dialog search-dialog" aria-labelledby="agentsTitle">
+    <div class="dialog-topline"><span id="agentsTitle">AGENTS LOCAUX · CONTRÔLES</span><button data-close="agentsDialog" aria-label="Fermer">×</button></div>
+    <p>Huit outils exécutent des vérifications locales. Ils ne sont pas des agents IA autonomes.</p>
+    <div id="agentsList" class="agents-list"></div>
+    <p id="agentResult" aria-live="polite">Choisis un contrôle pour l’exécuter.</p>
+  </dialog>
   <dialog id="searchDialog" class="glass-dialog search-dialog">
     <div class="dialog-topline"><span>RÉSONANCE · RECHERCHE</span><button data-close="searchDialog" aria-label="Fermer">×</button></div>
     <label class="search-input-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="Nom, chemin, extension, application…" autocomplete="off" /><kbd>ESC</kbd></label>
@@ -118,6 +124,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <input id="fallbackDirectory" type="file" webkitdirectory multiple hidden />
   <script src="space-engine.js" defer></script>
+  <script src="agents.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

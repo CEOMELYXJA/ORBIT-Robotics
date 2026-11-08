@@ -152,6 +152,9 @@
   let positions = new Map();
   let visible = [];
   let gesture = null;
+  let handMode = true;
+  let pointerSeen = false;
+  let cameraYawGoal = null, cameraPitchGoal = null;
   let pendingMove = null;
   let pendingExternalDrop = null;
   let externalDropTargetId = '';
@@ -1475,6 +1478,7 @@
   }
   function onAtomPointerDown(event, id) {
     if (event.button !== 0 || event.target.closest('[data-widget-action]')) return;
+    if (handMode) return; // Normal clicks still work; dragging an atom requires opting out.
     const n = node(id); if (!n || n.kind === 'root') return;
     event.preventDefault(); event.stopPropagation();
     const world = positions.get(id) || [0, 0, 0];
@@ -1486,7 +1490,15 @@
     if (gesture.kind === 'camera') {
       const dx = event.clientX - gesture.lastX, dy = event.clientY - gesture.lastY;
       if (Math.abs(event.clientX - gesture.startX) + Math.abs(event.clientY - gesture.startY) > 3) gesture.moved = true;
-      engine.camera.yaw -= dx * .0045; engine.camera.pitch = Math.max(walkMode ? -.95 : -1.08, Math.min(walkMode ? .95 : 1.08, engine.camera.pitch + dy * .0033));
+      if (handMode) {
+        if (cameraYawGoal === null) cameraYawGoal = engine.camera.yaw;
+        if (cameraPitchGoal === null) cameraPitchGoal = engine.camera.pitch;
+        cameraYawGoal -= dx * .003;
+        cameraPitchGoal = Math.max(walkMode ? -.95 : -1.08, Math.min(walkMode ? .95 : 1.08, cameraPitchGoal + dy * .0022));
+        wakeFrame();
+      } else {
+        engine.camera.yaw -= dx * .0045; engine.camera.pitch = Math.max(walkMode ? -.95 : -1.08, Math.min(walkMode ? .95 : 1.08, engine.camera.pitch + dy * .0033));
+      }
       gesture.lastX = event.clientX; gesture.lastY = event.clientY; return;
     }
     const dx = event.clientX - gesture.startX, dy = event.clientY - gesture.startY;
@@ -1511,12 +1523,18 @@
     }
     return best;
   }
+  function cancelGesture() {
+    gesture = null;
+    cameraYawGoal = null; cameraPitchGoal = null;
+    el('dropPrompt').classList.add('hidden');
+    for (const atom of nodeLayer.querySelectorAll('.atom-label')) atom.classList.remove('drop-target', 'is-dragging');
+  }
   function onPointerUp(event) {
     if (!gesture) return;
     const current = gesture; gesture = null;
     el('dropPrompt').classList.add('hidden');
     for (const atom of nodeLayer.querySelectorAll('.atom-label')) { atom.classList.remove('drop-target', 'is-dragging'); }
-    if (current.kind === 'camera') { if (current.moved) saveState(); return; }
+    if (current.kind === 'camera') { if (current.moved) scheduleCameraSave(); return; }
     if (current.moved) {
       const element = labelNodes.get(current.id); if (element) element.dataset.suppressClick = '1';
       if (current.targetId) { prepareMove(current.id, current.targetId); return; }
@@ -1559,6 +1577,27 @@
   function formatTime(seconds) { return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; }
 
   function setupControls() {
+    el('agentsButton').addEventListener('click', () => el('agentsDialog').showModal());
+    for (const agent of window.OrbitAgents.agents) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = agent.name;
+      button.addEventListener('click', () => {
+        const policy = document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content || '';
+        const result = window.OrbitAgents.runAgent(agent.id, {
+          nodes: state.nodes, sceneReady: Boolean(engine), pointerSeen, handMode,
+          networkBlocked: policy.includes("connect-src 'none'")
+        });
+        el('agentResult').textContent = `${agent.name} · ${result.status} — ${result.detail}`;
+      });
+      el('agentsList').append(button);
+    }
+    el('handModeButton').addEventListener('click', () => {
+      handMode = !handMode;
+      cameraYawGoal = null; cameraPitchGoal = null;
+      el('handModeButton').textContent = handMode ? '✋ Mode main : activé' : '✋ Mode main : désactivé';
+      el('handModeButton').setAttribute('aria-pressed', String(handMode));
+      showToast(handMode ? 'Mode main : planètes protégées.' : 'Mode main désactivé : les planètes peuvent être déplacées.');
+    });
     const nativeWebView = window.chrome?.webview;
     if (nativeWebView && typeof nativeWebView.postMessage === 'function') {
       nativeWebView.addEventListener('message', onNativeWindowMessage);
@@ -1616,6 +1655,7 @@
     for (const dialog of document.querySelectorAll('dialog')) dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
     canvas.addEventListener('pointerdown', event => {
       if (event.button !== 0 || event.target.closest('.atom-label')) return;
+      cameraYawGoal = engine.camera.yaw; cameraPitchGoal = engine.camera.pitch;
       gesture = { kind: 'camera', startX: event.clientX, startY: event.clientY, lastX: event.clientX, lastY: event.clientY, moved: false };
       canvas.setPointerCapture?.(event.pointerId);
     });
@@ -1635,11 +1675,14 @@
     }, true);
     document.addEventListener('dragleave', event => { if (!event.relatedTarget) clearExternalDrop(); }, true);
     document.addEventListener('dragend', clearExternalDrop, true);
-    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointermove', event => { pointerSeen = true; onPointerMove(event); });
     document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', cancelGesture);
+    window.addEventListener('blur', cancelGesture);
     document.addEventListener('keydown', event => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); showSearch(); }
       if (event.key === 'Escape') {
+        if (el('agentsDialog').open) return;
         if (walkMode) { exitWalkMode(); return; }
         if (el('searchDialog').open || el('connectDialog').open || el('moveDialog').open || el('filePreviewDialog').open || el('createDialog').open || el('renameDialog').open) return;
         if (!el('spaceMenu').classList.contains('hidden')) { closeSpaceMenu({ focusTrigger: true }); return; }
@@ -1717,11 +1760,18 @@
   function frame(now) {
     if (document.hidden) return;
     const camera = engine.camera;
-    const cameraAnimating = Math.abs(camera.distanceGoal - camera.distance) > .008 || camera.target.some((value, index) => Math.abs(camera.targetGoal[index] - value) > .008);
+    const turning = handMode && cameraYawGoal !== null && cameraPitchGoal !== null &&
+      (Math.abs(cameraYawGoal - camera.yaw) > .0001 || Math.abs(cameraPitchGoal - camera.pitch) > .0001);
+    const cameraAnimating = turning || Math.abs(camera.distanceGoal - camera.distance) > .008 || camera.target.some((value, index) => Math.abs(camera.targetGoal[index] - value) > .008);
     const resting = !walkMode && !gesture && !cameraAnimating && (reduceMotion.matches || state.motion === 0);
     const frameInterval = frameIntervalFor({ resting, interactive: walkMode || gesture || cameraAnimating, motion: state.motion });
     const deltaSeconds = lastFrameTime ? Math.min(.06, (now - lastFrameTime) / 1000) : 1 / 45;
     lastFrameTime = now;
+    if (turning) {
+      const alpha = 1 - Math.exp(-14 * deltaSeconds);
+      camera.yaw += (cameraYawGoal - camera.yaw) * alpha;
+      camera.pitch += (cameraPitchGoal - camera.pitch) * alpha;
+    }
     const seconds = now / 1000;
     const cache = new Map();
     const list = visibleNodes();
