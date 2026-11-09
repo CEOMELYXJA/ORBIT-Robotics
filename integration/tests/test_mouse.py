@@ -76,6 +76,30 @@ class ControllerTests(unittest.TestCase):
         self.assertLess(left_x, right_x)
         self.assertEqual(p[5].x, .25)
 
+    def test_delicate_motion_and_large_diagonal_are_bounded(self):
+        self.control.start()
+        self.control.position = (960, 540)
+        p = hand()
+        p[5].x = .51
+        self.control.update(p)
+        x, y = self.backend.events[-1][1:]
+        self.assertGreater(x, 960)
+        self.assertLess(x - 960, 12)
+        self.control.position = (960, 540)
+        p[5].x, p[5].y = 1.0, 1.0
+        self.control.update(p)
+        x, y = self.backend.events[-1][1:]
+        self.assertLessEqual(math.hypot(x - 960, y - 540), 111)
+
+    def test_motion_converges_and_remains_responsive(self):
+        self.control.start()
+        self.control.position = (600, 400)
+        p = hand()
+        for _ in range(35):
+            self.control.update(p)
+        x, y = self.backend.events[-1][1:]
+        self.assertLess(math.hypot(x - 960, y - 540), 8)
+
     def test_pinch_freezes_aim_before_click_but_drag_can_move(self):
         self.control.start()
         p = hand()
@@ -217,4 +241,5 @@ class NativeReleaseTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 

@@ -16,6 +16,20 @@ from gestures import GestureSwitch
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / 'enregistrements'
+WINDOW_TITLE = 'ORBIT Robotics v0.1'
+
+
+def mouse_button_rect(width, height):
+    return (max(0, width - 250), max(0, height - 58), width - 8, height - 8)
+
+
+def toggle_mouse(guard, selected):
+    """Pausing is always allowed; resuming needs a detected hand and guard."""
+    if not guard:
+        return 'SOURIS INDISPONIBLE'
+    if guard.controller.paused and selected is None:
+        return 'MONTRE UNE MAIN POUR ACTIVER'
+    return 'COMMANDE RECUE' if guard.toggle() else 'REPRISE IMPOSSIBLE'
 
 
 def start_mouse_guard():
@@ -104,6 +118,17 @@ def main():
     drawing = mp.solutions.drawing_utils
     session = None
     last_error = None
+    button_registered = False
+    button_requested = False
+    button_rect = (0, 0, 0, 0)
+    user_message = ''
+    user_message_until = 0.0
+
+    def on_window_mouse(event, x, y, _flags, _param):
+        nonlocal button_requested
+        left, top, right, bottom = button_rect
+        if event == cv2.EVENT_LBUTTONUP and left <= x <= right and top <= y <= bottom:
+            button_requested = True
 
     def stop():
         nonlocal session
@@ -168,12 +193,30 @@ def main():
                 gesture_help = ('G: gestes ACTIFS | 1 poing: pause | 2 poings: reprise'
                                 if gestures_enabled else 'G: activer gestes de pause (experimental)')
                 cv2.putText(frame, gesture_help, (10, 128), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                cv2.imshow('ORBIT Robotics v0.1', frame)
+                height, width = frame.shape[:2]
+                button_rect = mouse_button_rect(width, height)
+                left, top, right, bottom = button_rect
+                paused = guard is None or guard.controller.paused
+                cv2.rectangle(frame, (left, top), (right, bottom), (50, 80, 180) if paused else (65, 145, 65), -1)
+                button_label = ('SOURIS INDISPONIBLE' if guard is None else
+                                'CLIQUER : ACTIVER' if paused else 'CLIQUER : PAUSE')
+                cv2.putText(frame, button_label, (left + 8, top + 32), cv2.FONT_HERSHEY_SIMPLEX, .55, (255, 255, 255), 2)
+                if user_message and time.monotonic() < user_message_until:
+                    cv2.putText(frame, user_message, (10, 153), cv2.FONT_HERSHEY_SIMPLEX, .52, (0, 230, 255), 2)
+                cv2.imshow(WINDOW_TITLE, frame)
+                if not button_registered:
+                    try:
+                        cv2.setMouseCallback(WINDOW_TITLE, on_window_mouse)
+                        button_registered = True
+                    except cv2.error:
+                        pass  # P and F8 still work if the window backend cannot register a button.
                 key = cv2.waitKey(1) & 0xff
-                if cv2.getWindowProperty('ORBIT Robotics v0.1', cv2.WND_PROP_VISIBLE) < 1:
+                if cv2.getWindowProperty(WINDOW_TITLE, cv2.WND_PROP_VISIBLE) < 1:
                     break
-                if key in (ord('p'), ord('P')) and guard and selected is not None:
-                    guard.toggle()
+                if key in (ord('p'), ord('P')) or button_requested:
+                    button_requested = False
+                    user_message = toggle_mouse(guard, selected)
+                    user_message_until = time.monotonic() + 2.5
                 if key in (ord('m'), ord('M')):
                     mirror = not mirror
                     selector = HandSelector()
@@ -228,4 +271,5 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
 

@@ -68,7 +68,7 @@ class MouseController:
     Raises backend exceptions after attempting to release held buttons. The
     caller should display a fault and leave the controller stopped.
     """
-    def __init__(self, backend, screen_size, smoothing=.27, margin=.16,
+    def __init__(self, backend, screen_size, smoothing=.18, margin=.16,
                  pinch_on=.27, pinch_off=.43, min_frames=3, emergency_release=None,
                  monitors=None):
         if not 0 < smoothing <= 1 or not 0 <= pinch_on < pinch_off or min_frames < 1:
@@ -187,9 +187,14 @@ class MouseController:
                     x - self.aim_anchor[0], y - self.aim_anchor[1]) > 45:
                 self.aim_anchor = None
             if self.aim_anchor is None and distance > 3:
-                alpha = self.smoothing if distance < 25 else max(self.smoothing, .55)
-                self.position = (px + _clamp((x - px) * alpha, -180, 180),
-                                 py + _clamp((y - py) * alpha, -180, 180))
+                # Smoothly increase responsiveness as the target gets farther away.
+                # A radial cap keeps diagonal moves as gentle as horizontal ones.
+                blend = _clamp((distance - 8) / 160, 0, 1)
+                blend = blend * blend * (3 - 2 * blend)
+                alpha = self.smoothing + (max(self.smoothing, .48) - self.smoothing) * blend
+                step = min(distance * alpha, 110.0)
+                self.position = (px + (x - px) * step / distance,
+                                 py + (y - py) * step / distance)
             self.backend.moveTo(round(self.position[0]), round(self.position[1]))
             self.left_count = self.left_count + 1 if left < self.pinch_on else 0
             self.right_count = self.right_count + 1 if right < self.pinch_on and not self.left_down else 0
@@ -215,4 +220,5 @@ class MouseController:
                 # must report the failure instead of silently resuming.
                 pass
             raise
+
 

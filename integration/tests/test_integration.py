@@ -20,6 +20,54 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_on_screen_pause_button_uses_guard(self):
+        cap = Cap()
+        guard = Mock()
+        guard.error = None
+        guard.controller.paused = False
+        guard.toggle.return_value = True
+        registered = []
+        calls = 0
+
+        def key(_delay):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                registered[0](app.cv2.EVENT_LBUTTONUP, 10, 20, 0, None)
+                return -1
+            return ord('q')
+
+        with patch.object(sys, 'argv', ['orbit']), patch.object(app, 'start_mouse_guard', return_value=guard), \
+             patch.object(app.cv2, 'VideoCapture', return_value=cap), \
+             patch.object(app.mp.solutions.hands, 'Hands', return_value=Hands()), \
+             patch.object(app.cv2, 'imshow'), \
+             patch.object(app.cv2, 'setMouseCallback', side_effect=lambda _name, callback: registered.append(callback)), \
+             patch.object(app.cv2, 'destroyAllWindows'), \
+             patch.object(app.cv2, 'getWindowProperty', return_value=1), \
+             patch.object(app.cv2, 'waitKey', side_effect=key):
+            self.assertEqual(app.main(), 0)
+        guard.toggle.assert_called_once()
+
+    def test_pause_works_even_if_hand_disappears(self):
+        guard = Mock()
+        guard.controller.paused = False
+        guard.toggle.return_value = True
+        app.toggle_mouse(guard, None)
+        guard.toggle.assert_called_once()
+
+    def test_resume_requires_a_detected_hand(self):
+        guard = Mock()
+        guard.controller.paused = True
+        self.assertEqual(app.toggle_mouse(guard, None), 'MONTRE UNE MAIN POUR ACTIVER')
+        guard.toggle.assert_not_called()
+
+    def test_resume_uses_safety_guard(self):
+        guard = Mock()
+        guard.controller.paused = True
+        guard.toggle.return_value = True
+        self.assertEqual(app.toggle_mouse(guard, [object()]), 'COMMANDE RECUE')
+        guard.toggle.assert_called_once()
+
     def test_gestures_are_disabled_until_explicitly_enabled(self):
         cap = Cap()
         guard = Mock()
@@ -30,7 +78,7 @@ class IntegrationTests(unittest.TestCase):
              patch.object(app, 'GestureSwitch', return_value=gesture), \
              patch.object(app.cv2, 'VideoCapture', return_value=cap), \
              patch.object(app.mp.solutions.hands, 'Hands', return_value=Hands()), \
-             patch.object(app.cv2, 'imshow'), patch.object(app.cv2, 'destroyAllWindows'), \
+             patch.object(app.cv2, 'imshow'), patch.object(app.cv2, 'setMouseCallback'), patch.object(app.cv2, 'destroyAllWindows'), \
              patch.object(app.cv2, 'getWindowProperty', return_value=1), \
              patch.object(app.cv2, 'waitKey', return_value=ord('q')):
             self.assertEqual(app.main(), 0)
@@ -171,4 +219,5 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(all(c.released for c in cameras))
 
 if __name__ == '__main__': unittest.main()
+
 
