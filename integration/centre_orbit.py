@@ -31,6 +31,7 @@ class OrbitCenter:
         self.root = root
         self.child = None
         self.space = None
+        self.projection = None
         self.diagnostic = None
         self.notice = None
         self.status = tk.StringVar(value='Prêt')
@@ -55,8 +56,12 @@ class OrbitCenter:
                   font=('Segoe UI', 11), padx=14, pady=10).pack(side='left', padx=(12, 0))
         tk.Button(actions, text='Diagnostic + caméra', command=lambda: self.run_diagnostic(True),
                   font=('Segoe UI', 10), padx=10, pady=10).pack(side='left', padx=(8, 0))
-        tk.Button(content, text='Ouvrir mon espace spatial', command=self.open_space,
-                  font=('Segoe UI', 11, 'bold'), padx=14, pady=6).pack(anchor='w', pady=(12, 0))
+        spatial_actions = tk.Frame(content, bg='#0c1726')
+        spatial_actions.pack(anchor='w', pady=(12, 0))
+        tk.Button(spatial_actions, text='Ouvrir mon espace spatial', command=self.open_space,
+                  font=('Segoe UI', 11, 'bold'), padx=14, pady=6).pack(side='left')
+        tk.Button(spatial_actions, text='Aperçu de projection', command=self.open_projection,
+                  font=('Segoe UI', 10), padx=10, pady=6).pack(side='left', padx=(8, 0))
         tk.Label(content, textvariable=self.status, font=('Segoe UI', 10, 'bold'),
                  fg='#8ce4c4', bg='#0c1726', wraplength=650, justify='left').pack(anchor='w', pady=(12, 16))
         tk.Label(content, text='Dans la fenêtre vidéo', font=('Segoe UI', 13, 'bold'),
@@ -102,6 +107,19 @@ class OrbitCenter:
             self.status.set('Ouverture de l’espace spatial…')
         except OSError as exc:
             messagebox.showerror('ORBIT', f'Impossible d’ouvrir l’espace spatial : {exc}')
+
+    def open_projection(self):
+        if self.projection is not None and self.projection.poll() is None:
+            self.status.set('L’aperçu de projection est déjà ouvert.')
+            return
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
+        try:
+            self.projection = subprocess.Popen([sys.executable, str(ROOT / 'projection_preview.py')],
+                                               cwd=str(ROOT), stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL, creationflags=flags)
+            self.status.set('Aperçu de projection ouvert : simulation sur écran.')
+        except OSError:
+            messagebox.showerror('ORBIT', 'Impossible d’ouvrir l’aperçu de projection.')
 
     def run_diagnostic(self, with_camera=False):
         if self.diagnostic is not None and self.diagnostic.poll() is None:
