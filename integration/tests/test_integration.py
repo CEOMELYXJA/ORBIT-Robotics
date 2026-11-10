@@ -1,7 +1,7 @@
 import sys
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import orbit_integrated as app
 
@@ -20,6 +20,52 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_recording_keeps_full_camera_resolution_while_preview_is_small(self):
+        cap = Cap()
+        cap.read = Mock(side_effect=lambda: (True, np.zeros((720, 1280, 3), dtype=np.uint8)))
+        cap.get = Mock(return_value=30)
+        output = MagicMock()
+        writer = Mock()
+        writer.isOpened.return_value = True
+        with patch.object(sys, 'argv', ['orbit', '--mirror']), \
+             patch.object(app, 'OUTPUT', output), \
+             patch.object(app, 'start_mouse_guard', return_value=None), \
+             patch.object(app.cv2, 'VideoCapture', return_value=cap), \
+             patch.object(app.cv2, 'VideoWriter', return_value=writer) as make_writer, \
+             patch.object(app.mp.solutions.hands, 'Hands', return_value=Hands()), \
+             patch.object(app.cv2, 'imshow') as display, \
+             patch.object(app.cv2, 'setMouseCallback'), patch.object(app.cv2, 'destroyAllWindows'), \
+             patch.object(app.cv2, 'getWindowProperty', return_value=1), \
+             patch.object(app.cv2, 'waitKey', side_effect=[ord('r'), ord('q')]):
+            self.assertEqual(app.main(), 0)
+        self.assertEqual(make_writer.call_args.args[3], (1280, 720))
+        self.assertEqual(writer.write.call_args.args[0].shape, (720, 1280, 3))
+        self.assertEqual(display.call_args.args[1].shape, (360, 640, 3))
+        writer.release.assert_called_once()
+
+    def test_preview_is_smaller_without_changing_recording_resolution(self):
+        source = np.zeros((720, 1280, 3), dtype=np.uint8)
+        source[:, :300] = 255
+        preview, recording = app.prepare_frames(source, mirror=True, recording=True)
+        self.assertEqual(preview.shape, (360, 640, 3))
+        self.assertEqual(recording.shape, source.shape)
+        self.assertTrue(np.all(recording[:, -300:] == 255))
+        self.assertTrue(np.all(recording[:, :300] == 0))
+        self.assertTrue(np.all(source[:, :300] == 255))
+
+    def test_small_preview_does_not_modify_full_frame_when_recording(self):
+        source = np.full((64, 64, 3), 100, dtype=np.uint8)
+        preview, recording = app.prepare_frames(source, recording=True)
+        preview[:] = 0
+        self.assertTrue(np.all(recording == 100))
+        self.assertFalse(np.shares_memory(preview, recording))
+
+    def test_no_recording_frame_when_recording_is_off(self):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        preview, recording = app.prepare_frames(frame, mirror=True, recording=False)
+        self.assertEqual(preview.shape, (360, 640, 3))
+        self.assertIsNone(recording)
+
     def test_on_screen_pause_button_uses_guard(self):
         cap = Cap()
         guard = Mock()

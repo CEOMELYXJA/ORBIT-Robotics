@@ -67,6 +67,19 @@ def tracking_image(frame, max_width=640):
                       interpolation=cv2.INTER_AREA)
 
 
+def prepare_frames(source, mirror=False, recording=False):
+    """Build one small preview; keep full-size pixels only for an active recording."""
+    preview = tracking_image(source)
+    recording_frame = None
+    if mirror:
+        preview = cv2.flip(preview, 1)
+        if recording:
+            recording_frame = cv2.flip(source, 1)
+    elif recording:
+        recording_frame = source.copy() if preview is source else source
+    return preview, recording_frame
+
+
 def process_hand_control(guard, gestures, hands, selected, changed):
     """Handle gesture actions without issuing input for an ambiguous pose."""
     if guard.error:
@@ -96,8 +109,11 @@ def main():
     parser.add_argument('--camera', type=int, default=0, help='numero de camera Windows')
     parser.add_argument('--backend', choices=['msmf', 'dshow'], default='msmf')
     parser.add_argument('--mirror', action='store_true', help='inverser horizontalement la video et le curseur')
+    parser.add_argument('--relative', action='store_true', help='mode experimental : fermer la main pour la replacer')
     args = parser.parse_args()
     guard = start_mouse_guard()
+    if guard and args.relative:
+        guard.controller.relative_mode = True
     selector = HandSelector()
     gestures = GestureSwitch()
     gestures_enabled = False
@@ -147,19 +163,20 @@ def main():
             fps_ema = 0.0
             last_frame_time = time.monotonic()
             while True:
-                ok, frame = cap.read()
+                ok, source_frame = cap.read()
                 if not ok:
                     print('La webcam ne fournit plus d’image.')
                     last_error = RuntimeError('Camera interrompue')
                     break
-                if mirror:
-                    frame = cv2.flip(frame, 1)
-                result = hands.process(cv2.cvtColor(tracking_image(frame), cv2.COLOR_BGR2RGB))
+                frame, recording_frame = prepare_frames(source_frame, mirror, session is not None)
+                result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 detected = []
                 for idx, hand in enumerate(result.multi_hand_landmarks or []):
-                    handed = result.multi_handedness[idx].classification[0]
-                    points = [{'id': i, 'x': p.x, 'y': p.y, 'z': p.z} for i, p in enumerate(hand.landmark)]
-                    detected.append({'main': handed.label, 'confiance': handed.score, 'points': points})
+                    if session:
+                        handed = result.multi_handedness[idx].classification[0]
+                        points = [{'id': i, 'x': p.x, 'y': p.y, 'z': p.z} for i, p in enumerate(hand.landmark)]
+                        detected.append({'main': handed.label, 'confiance': handed.score, 'points': points})
+                        drawing.draw_landmarks(recording_frame, hand, hands_api.HAND_CONNECTIONS)
                     drawing.draw_landmarks(frame, hand, hands_api.HAND_CONNECTIONS)
                 mouse_status = 'SOURIS INDISPONIBLE'
                 selected, changed = selector.select(result.multi_hand_landmarks, result.multi_handedness)
@@ -179,7 +196,7 @@ def main():
                     for hand in detected:
                         for p in hand['points']:
                             session['csv'].writerow([session['frames'], elapsed, hand['main'], hand['confiance'], p['id'], p['x'], p['y'], p['z']])
-                    session['video'].write(frame)
+                    session['video'].write(recording_frame)
                     session['frames'] += 1
                 status = 'ENREGISTREMENT' if session else 'PRET'
                 cv2.putText(frame, f'ORBIT | {status} | R: enregistrer/arreter | Q: quitter', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.52, (0, 0, 255) if session else (0, 220, 0), 2)
@@ -190,7 +207,8 @@ def main():
                 fps_ema = fps_now if not fps_ema else .9 * fps_ema + .1 * fps_now
                 last_frame_time = now
                 cv2.putText(frame, f'{fps_ema:.0f} images/s', (10, 105), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
-                gesture_help = ('G: gestes ACTIFS | 1 poing: pause | 2 poings: reprise'
+                gesture_help = ('MAIN FERMEE : REPLACER | MAIN OUVERTE : REPRENDRE' if args.relative else
+                                'G: gestes ACTIFS | 1 poing: pause | 2 poings: reprise'
                                 if gestures_enabled else 'G: activer gestes de pause (experimental)')
                 cv2.putText(frame, gesture_help, (10, 128), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
                 height, width = frame.shape[:2]
@@ -238,7 +256,7 @@ def main():
                         OUTPUT.mkdir(exist_ok=True)
                         folder = OUTPUT / datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
                         folder.mkdir()
-                        height, width = frame.shape[:2]
+                        height, width = source_frame.shape[:2]
                         fps = cap.get(cv2.CAP_PROP_FPS)
                         if not 1 <= fps <= 120:
                             fps = 30.0

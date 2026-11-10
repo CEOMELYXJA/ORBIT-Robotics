@@ -8,6 +8,7 @@ import math
 import ctypes
 import os
 from monitors import map_to_monitors
+from gestures import is_closed_fist
 
 
 def _windows_release_left():
@@ -89,6 +90,11 @@ class MouseController:
         self.wait_for_open = False
         self.invert_x = False
         self.aim_anchor = None
+        self.relative_mode = False
+        self.relative_hand = None
+        self.relative_target = None
+        self.relative_open_needed = 0
+        self.edge_x = self.edge_y = 0
 
     def start(self):
         """Resume only after an explicit user action."""
@@ -104,6 +110,10 @@ class MouseController:
         self.right_triggered = False
         self.wait_for_open = False
         self.aim_anchor = None
+        self.relative_hand = None
+        self.relative_target = None
+        self.relative_open_needed = 0
+        self.edge_x = self.edge_y = 0
         if self.left_down:
             # Keep the state set if release fails so another stop can retry.
             self._release_left()
@@ -134,6 +144,10 @@ class MouseController:
             self.right_triggered = False
             self.position = self.last_scroll = None
             self.aim_anchor = None
+            self.relative_hand = None
+            self.relative_target = None
+            self.relative_open_needed = 3 if self.relative_mode else 0
+            self.edge_x = self.edge_y = 0
             self.wait_for_open = True
             return 'RECHERCHE MAIN'
         try:
@@ -142,13 +156,31 @@ class MouseController:
             for point in landmarks:
                 if not math.isfinite(point.x) or not math.isfinite(point.y):
                     raise ValueError('Invalid hand landmark')
+            if self.relative_mode and is_closed_fist(landmarks):
+                if self.left_down:
+                    self._release_left()
+                    self.left_down = False
+                self.left_count = self.right_count = 0
+                self.right_triggered = False
+                self.relative_hand = self.relative_target = None
+                self.edge_x = self.edge_y = 0
+                self.aim_anchor = None
+                self.wait_for_open = True
+                self.relative_open_needed = 3
+                return 'MAIN FERMEE : REPLACER'
             scale = max(_distance(landmarks[0], landmarks[9]), .0001)
             left = _distance(landmarks[4], landmarks[8]) / scale
             right = _distance(landmarks[4], landmarks[12]) / scale
             if self.wait_for_open:
                 if left > self.pinch_off and right > self.pinch_off:
+                    if self.relative_open_needed:
+                        self.relative_open_needed -= 1
+                        if self.relative_open_needed:
+                            return 'OUVRIR LA MAIN'
                     self.wait_for_open = False
                 else:
+                    if self.relative_mode and self.relative_open_needed:
+                        self.relative_open_needed = 3
                     return 'OUVRIR LA MAIN'
             index_up = landmarks[8].y < landmarks[6].y
             middle_up = landmarks[12].y < landmarks[10].y
@@ -173,6 +205,49 @@ class MouseController:
             x, y = (map_to_monitors(input_x, landmarks[5].y, self.monitors, self.margin)
                     if self.monitors else screen_position(input_x, landmarks[5].y,
                                                           self.width, self.height, self.margin))
+            if self.relative_mode:
+                hand_position = (x, y)
+                if self.relative_hand is None:
+                    current = getattr(self.backend, 'position', None)
+                    self.position = tuple(current()) if callable(current) else (x, y)
+                    self.relative_target = self.position
+                else:
+                    dx = x - self.relative_hand[0]
+                    dy = y - self.relative_hand[1]
+                    if self.edge_x and dx * self.edge_x < 0:
+                        self.relative_target = (self.position[0], self.relative_target[1])
+                        self.edge_x = 0
+                    if self.edge_y and dy * self.edge_y < 0:
+                        self.relative_target = (self.relative_target[0], self.position[1])
+                        self.edge_y = 0
+                    tx = self.relative_target[0] + dx * 1.35
+                    ty = self.relative_target[1] + dy * 1.35
+                    displays = self.monitors or [(0, 0, self.width, self.height)]
+                    tx = _clamp(tx, min(d[0] for d in displays) + 3, max(d[2] for d in displays) - 4)
+                    ty = _clamp(ty, min(d[1] for d in displays) + 3, max(d[3] for d in displays) - 4)
+                    # Reaching a camera edge deliberately overrides the accumulated
+                    # offset, while re-opening the fist never triggers a jump.
+                    edge = max(self.margin, .22)
+                    if input_x <= edge and dx < 0:
+                        tx = min(d[0] for d in displays) + 3
+                        self.edge_x = -1
+                    elif input_x >= 1 - edge and dx > 0:
+                        tx = max(d[2] for d in displays) - 4
+                        self.edge_x = 1
+                    horizontal = min(displays, key=lambda d: abs(_clamp(tx, d[0], d[2] - 1) - tx))
+                    if landmarks[5].y <= edge and dy < 0:
+                        ty = horizontal[1] + 3
+                        self.edge_y = -1
+                    elif landmarks[5].y >= 1 - edge and dy > 0:
+                        ty = horizontal[3] - 4
+                        self.edge_y = 1
+                    self.relative_target = (tx, ty)
+                self.relative_hand = hand_position
+                tx, ty = self.relative_target
+                displays = self.monitors or [(0, 0, self.width, self.height)]
+                candidates = [(_clamp(tx, l + 3, r - 4), _clamp(ty, t + 3, b - 4))
+                              for l, t, r, b in displays]
+                x, y = min(candidates, key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
             if self.position is None:
                 current = getattr(self.backend, 'position', None)
                 self.position = tuple(current()) if callable(current) else (x, y)

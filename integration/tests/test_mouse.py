@@ -100,6 +100,106 @@ class ControllerTests(unittest.TestCase):
         x, y = self.backend.events[-1][1:]
         self.assertLess(math.hypot(x - 960, y - 540), 8)
 
+    def test_relative_fist_rebases_without_moving_or_clicking(self):
+        position = [900, 500]
+        self.backend.position = lambda: tuple(position)
+        self.control.relative_mode = True
+        self.control.start()
+        p = hand()
+        self.control.update(p)
+        self.assertEqual(self.backend.events[-1], ('move', 900, 500))
+        closed = hand()
+        for tip, joint in ((8, 6), (12, 10), (16, 14), (20, 18)):
+            closed[joint] = SimpleNamespace(x=.5, y=.55)
+            closed[tip] = SimpleNamespace(x=.5, y=.68)
+        closed[5].x = .8
+        before = len(self.backend.events)
+        self.assertEqual(self.control.update(closed), 'MAIN FERMEE : REPLACER')
+        self.assertEqual(len(self.backend.events), before)
+        p[5].x = .8
+        self.assertEqual(self.control.update(p), 'OUVRIR LA MAIN')
+        self.assertEqual(self.control.update(p), 'OUVRIR LA MAIN')
+        self.control.update(p)
+        self.assertEqual(self.backend.events[-1], ('move', 900, 500))
+        self.assertNotIn(('down', 'left'), self.backend.events)
+        p[5].x = .82
+        self.control.update(p)
+        self.assertGreater(self.backend.events[-1][1], 900)
+
+    def test_relative_releases_held_click_when_clutching(self):
+        self.backend.position = lambda: (900, 500)
+        self.control.relative_mode = True
+        self.control.start()
+        self.control.update(hand())
+        for _ in range(3): self.control.update(hand(left=True))
+        self.assertTrue(self.control.left_down)
+        closed = hand()
+        for tip, joint in ((8, 6), (12, 10), (16, 14), (20, 18)):
+            closed[joint] = SimpleNamespace(x=.5, y=.55)
+            closed[tip] = SimpleNamespace(x=.5, y=.68)
+        self.assertEqual(self.control.update(closed), 'MAIN FERMEE : REPLACER')
+        self.assertFalse(self.control.left_down)
+        self.assertEqual(self.backend.events[-1], ('up', 'left'))
+
+    def test_relative_crosses_two_adjacent_displays_with_small_movements(self):
+        self.backend.position = lambda: (1910, 500)
+        self.control.monitors = [(0, 0, 1920, 1080), (1920, 0, 3840, 1080)]
+        self.control.relative_mode = True
+        self.control.start()
+        p = hand()
+        self.control.update(p)
+        for _ in range(40):
+            p[5].x += .001
+            self.control.update(p)
+        self.assertGreater(self.backend.events[-1][1], 1920)
+
+    def test_relative_camera_edges_reach_opposite_corners(self):
+        self.backend.position = lambda: (1920, 540)
+        self.control.monitors = [(0, 0, 1920, 1080), (1920, 0, 3840, 1080)]
+        self.control.relative_mode = True
+        self.control.start()
+        p = hand()
+        self.control.update(p)
+        p[5].x, p[5].y = .95, .05
+        for _ in range(40): self.control.update(p)
+        x, y = self.backend.events[-1][1:]
+        self.assertGreaterEqual(x, 3830)
+        self.assertLessEqual(y, 10)
+        p[5].x, p[5].y = .05, .95
+        for _ in range(60): self.control.update(p)
+        x, y = self.backend.events[-1][1:]
+        self.assertLessEqual(x, 10)
+        self.assertGreaterEqual(y, 1070)
+
+    def test_relative_reopening_at_camera_edge_does_not_jump(self):
+        self.backend.position = lambda: (900, 500)
+        self.control.relative_mode = True
+        self.control.start()
+        self.control.update(hand())
+        closed = hand()
+        for tip, joint in ((8, 6), (12, 10), (16, 14), (20, 18)):
+            closed[joint] = SimpleNamespace(x=.5, y=.55)
+            closed[tip] = SimpleNamespace(x=.5, y=.68)
+        self.control.update(closed)
+        opened = hand()
+        opened[5].x, opened[5].y = .95, .05
+        for _ in range(3): self.control.update(opened)
+        self.assertEqual(self.backend.events[-1], ('move', 900, 500))
+
+    def test_reversing_after_edge_stops_movement_toward_old_target(self):
+        self.backend.position = lambda: (800, 500)
+        self.control.relative_mode = True
+        self.control.start()
+        p = hand()
+        self.control.update(p)
+        p[5].x = .80
+        self.control.update(p)
+        x_before = self.backend.events[-1][1]
+        p[5].x = .75
+        self.control.update(p)
+        x_after = self.backend.events[-1][1]
+        self.assertLess(x_after, x_before)
+
     def test_pinch_freezes_aim_before_click_but_drag_can_move(self):
         self.control.start()
         p = hand()
