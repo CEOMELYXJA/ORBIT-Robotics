@@ -63,8 +63,23 @@ def tracking_image(frame, max_width=640):
     height, width = frame.shape[:2]
     if width <= max_width:
         return frame
-    return cv2.resize(frame, (max_width, max(1, round(height * max_width / width))),
-                      interpolation=cv2.INTER_AREA)
+    out_height = max(1, round(height * max_width / width))
+    # At exactly half size, OpenCV's linear and area results coincide for
+    # 8-bit camera frames. Keep area interpolation for every other scale.
+    mode = cv2.INTER_LINEAR if width == 2 * max_width and height == 2 * out_height else cv2.INTER_AREA
+    return cv2.resize(frame, (max_width, out_height), interpolation=mode)
+
+
+def zoom_source(source, factor=1.0):
+    """Center crop before inference so distant hands occupy more of the input."""
+    if factor <= 1.0:
+        return source
+    height, width = source.shape[:2]
+    crop_width = max(1, round(width / factor))
+    crop_height = max(1, round(height / factor))
+    left = (width - crop_width) // 2
+    top = (height - crop_height) // 2
+    return source[top:top + crop_height, left:left + crop_width]
 
 
 def prepare_frames(source, mirror=False, recording=False):
@@ -110,6 +125,7 @@ def main():
     parser.add_argument('--backend', choices=['msmf', 'dshow'], default='msmf')
     parser.add_argument('--mirror', action='store_true', help='inverser horizontalement la video et le curseur')
     parser.add_argument('--relative', action='store_true', help='mode experimental : fermer la main pour la replacer')
+    parser.add_argument('--zoom', type=float, default=1.0, choices=[1.0, 1.5, 2.0], help='zoom central experimental pour les mains eloignees')
     args = parser.parse_args()
     guard = start_mouse_guard()
     if guard and args.relative:
@@ -168,6 +184,7 @@ def main():
                     print('La webcam ne fournit plus d’image.')
                     last_error = RuntimeError('Camera interrompue')
                     break
+                source_frame = zoom_source(source_frame, args.zoom)
                 frame, recording_frame = prepare_frames(source_frame, mirror, session is not None)
                 result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 detected = []
@@ -289,5 +306,4 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-
 

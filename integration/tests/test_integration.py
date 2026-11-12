@@ -20,6 +20,33 @@ class Hands:
 
 
 class IntegrationTests(unittest.TestCase):
+    def test_distance_zoom_crops_center_before_tracking(self):
+        frame = np.arange(120 * 180, dtype=np.uint32).reshape(120, 180)
+        self.assertIs(app.zoom_source(frame), frame)
+        np.testing.assert_array_equal(app.zoom_source(frame, 1.5), frame[20:100, 30:150])
+        np.testing.assert_array_equal(app.zoom_source(frame, 2), frame[30:90, 45:135])
+
+    def test_distance_zoom_is_used_for_preview_and_recording(self):
+        cap = Cap()
+        cap.read = Mock(return_value=(True, np.zeros((120, 180, 3), dtype=np.uint8)))
+        cap.get = Mock(return_value=30)
+        writer = Mock()
+        writer.isOpened.return_value = True
+        with patch.object(sys, 'argv', ['orbit', '--zoom', '1.5']), \
+             patch.object(app, 'OUTPUT', MagicMock()), \
+             patch.object(app, 'start_mouse_guard', return_value=None), \
+             patch.object(app.cv2, 'VideoCapture', return_value=cap), \
+             patch.object(app.cv2, 'VideoWriter', return_value=writer) as make_writer, \
+             patch.object(app.mp.solutions.hands, 'Hands', return_value=Hands()), \
+             patch.object(app.cv2, 'imshow') as display, \
+             patch.object(app.cv2, 'setMouseCallback'), patch.object(app.cv2, 'destroyAllWindows'), \
+             patch.object(app.cv2, 'getWindowProperty', return_value=1), \
+             patch.object(app.cv2, 'waitKey', side_effect=[ord('r'), ord('q')]):
+            self.assertEqual(app.main(), 0)
+        self.assertEqual(display.call_args.args[1].shape, (80, 120, 3))
+        self.assertEqual(make_writer.call_args.args[3], (120, 80))
+        self.assertEqual(writer.write.call_args.args[0].shape, (80, 120, 3))
+
     def test_recording_keeps_full_camera_resolution_while_preview_is_small(self):
         cap = Cap()
         cap.read = Mock(side_effect=lambda: (True, np.zeros((720, 1280, 3), dtype=np.uint8)))
@@ -167,6 +194,12 @@ class IntegrationTests(unittest.TestCase):
         small = np.zeros((100, 200, 3), dtype=np.uint8)
         self.assertIs(app.tracking_image(small), small)
 
+    def test_half_size_preview_matches_previous_area_resize(self):
+        random = np.random.default_rng(42)
+        frame = random.integers(0, 256, (720, 1280, 3), dtype=np.uint8)
+        old = app.cv2.resize(frame, (640, 360), interpolation=app.cv2.INTER_AREA)
+        self.assertTrue(np.array_equal(app.tracking_image(frame), old))
+
     def test_mouse_disabled_if_monitor_fails_to_start(self):
         candidate = Mock()
         candidate.start_monitor.side_effect = RuntimeError('moniteur indisponible')
@@ -265,5 +298,4 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(all(c.released for c in cameras))
 
 if __name__ == '__main__': unittest.main()
-
 

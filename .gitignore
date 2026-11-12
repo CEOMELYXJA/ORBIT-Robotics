@@ -4,6 +4,8 @@ __pycache__/
 .mplconfig/
 .orbit-spatial-profile/
 enregistrements/
+cockpit_state/
+historique_mouvements/
 recordings/
 captures/
 screenshots/
@@ -34,4 +36,3 @@ rapports/
 *.[rR][aA][rR]
 *.[jJ][sS][oO][nN][lL]
 *.[cC][sS][vV]
-

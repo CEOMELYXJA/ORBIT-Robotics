@@ -26,4 +26,3 @@
   root.OrbitRelations = {describe};
   if (typeof module !== 'undefined') module.exports = root.OrbitRelations;
 })(typeof window !== 'undefined' ? window : globalThis);
-

@@ -86,6 +86,7 @@ class MouseController:
         self.right_triggered = False
         self.left_count = self.right_count = 0
         self.position = None
+        self.last_sent_position = None
         self.last_scroll = None
         self.wait_for_open = False
         self.invert_x = False
@@ -105,6 +106,7 @@ class MouseController:
         """Pause immediately and release a held drag; safe to call repeatedly."""
         self.paused = True
         self.position = None
+        self.last_sent_position = None
         self.last_scroll = None
         self.left_count = self.right_count = 0
         self.right_triggered = False
@@ -143,6 +145,7 @@ class MouseController:
             self.left_count = self.right_count = 0
             self.right_triggered = False
             self.position = self.last_scroll = None
+            self.last_sent_position = None
             self.aim_anchor = None
             self.relative_hand = None
             self.relative_target = None
@@ -270,7 +273,10 @@ class MouseController:
                 step = min(distance * alpha, 110.0)
                 self.position = (px + (x - px) * step / distance,
                                  py + (y - py) * step / distance)
-            self.backend.moveTo(round(self.position[0]), round(self.position[1]))
+            point = (round(self.position[0]), round(self.position[1]))
+            if point != self.last_sent_position:
+                self.backend.moveTo(*point)
+                self.last_sent_position = point
             self.left_count = self.left_count + 1 if left < self.pinch_on else 0
             self.right_count = self.right_count + 1 if right < self.pinch_on and not self.left_down else 0
             if not self.left_down and self.left_count >= self.min_frames:
@@ -295,5 +301,4 @@ class MouseController:
                 # must report the failure instead of silently resuming.
                 pass
             raise
-
 

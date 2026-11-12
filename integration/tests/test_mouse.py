@@ -63,6 +63,20 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.control.update(hand(left=True)), 'PAUSE')
         self.assertEqual(self.backend.events, [])
 
+    def test_stationary_hand_does_not_repeat_same_mouse_move(self):
+        self.control.start()
+        self.control.update(hand())
+        self.control.update(hand())
+        self.control.update(hand())
+        self.assertEqual(len([event for event in self.backend.events if event[0] == 'move']), 1)
+
+    def test_reacquired_hand_can_move_to_the_same_coordinates(self):
+        self.control.start()
+        self.control.update(hand())
+        self.control.update(None)
+        self.control.update(hand())
+        self.assertEqual(len([event for event in self.backend.events if event[0] == 'move']), 2)
+
     def test_pointer_direction_can_reverse_without_changing_input(self):
         self.control.start()
         p = hand()
@@ -253,7 +267,9 @@ class ControllerTests(unittest.TestCase):
         self.control.start()
         for _ in range(3): self.control.update(hand(left=True))
         self.backend.fail_move = True
-        with self.assertRaises(RuntimeError): self.control.update(hand())
+        moved = hand()
+        moved[5].x = .9
+        with self.assertRaises(RuntimeError): self.control.update(moved)
         self.assertTrue(self.control.paused)
         self.assertEqual(self.backend.events[-1], ('up', 'left'))
 
@@ -341,5 +357,4 @@ class NativeReleaseTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
 

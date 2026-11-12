@@ -19,4 +19,3 @@
 Un projecteur affiche de la lumière sur une surface ; un PNG transparent ne crée pas, à lui seul, une projection flottante ou transparente. Sur une surface, le noir correspond généralement à l'absence de lumière envoyée par le projecteur, pas à une transparence parfaite.
 
 La boutique et les produits peuvent évoluer en parallèle, mais les caractéristiques, compatibilités et fonctions du logiciel doivent être vérifiées avant d'être présentées comme disponibles. Les conversations et projets existants restent conservés ; ce document rassemble leurs étapes sans les fusionner ni déplacer leurs données.
-

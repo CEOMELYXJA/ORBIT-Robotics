@@ -1833,4 +1833,3 @@
     restoreConnectedHandles().catch(error => { console.error(error); showToast('La synchronisation des dossiers connectés a échoué.'); });
   }
 })();
-

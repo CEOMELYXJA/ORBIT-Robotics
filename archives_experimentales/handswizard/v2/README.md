@@ -71,4 +71,3 @@ La page de présentation est un **guide public**, pas la connexion privée. Un n
 
 ### État du projet
 Cette branche est une **première version à tester sur tes deux appareils**. Aucun test physique iPhone ni webcam Windows n'est revendiqué. Les contrôles de sécurité restent à confirmer dans ton propre tailnet.
-

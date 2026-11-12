@@ -15,4 +15,3 @@ assert.match(text,/Liens dans la carte : Outil/);
 assert.match(text,/aucun lien automatique avec un vrai dossier/);
 assert.match(describe({id:'empty',kind:'folder',scaleShell:true},[]),/À l’intérieur : aucun pour le moment/);
 console.log('Relations : parent, contenu, voisins et liens distingués.');
-

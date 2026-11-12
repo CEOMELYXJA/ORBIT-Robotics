@@ -170,4 +170,3 @@ assert.equal(sandbox.api.moveInModel(reparentedPeer.id, 'projects'), true, 'same
 assert.equal(reparentedPeer.peerLevel, undefined, 'moving a peer universe to a different parent should remove the old shared-orbit grouping');
 assert.equal(reparentedPeer.parentId, 'projects');
 console.log('Navigation, scale controls, and search checks passed: separated 3D peer ecosystems, independent orbit edits, 360-degree drag, peer reparenting, click entry/exit, nested zoom thresholds, shell cooldown, first-person zoom lock, cyclic breadcrumbs, and path-aware duplicate search.');
-

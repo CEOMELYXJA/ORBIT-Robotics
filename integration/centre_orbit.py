@@ -32,6 +32,7 @@ class OrbitCenter:
         self.child = None
         self.space = None
         self.projection = None
+        self.window_cockpit = None
         self.diagnostic = None
         self.notice = None
         self.status = tk.StringVar(value='Prêt')
@@ -61,6 +62,8 @@ class OrbitCenter:
         tk.Button(spatial_actions, text='Ouvrir mon espace spatial', command=self.open_space,
                   font=('Segoe UI', 11, 'bold'), padx=14, pady=6).pack(side='left')
         tk.Button(spatial_actions, text='Aperçu de projection', command=self.open_projection,
+                  font=('Segoe UI', 10), padx=10, pady=6).pack(side='left', padx=(8, 0))
+        tk.Button(spatial_actions, text='Mes fenêtres Windows', command=self.open_window_cockpit,
                   font=('Segoe UI', 10), padx=10, pady=6).pack(side='left', padx=(8, 0))
         tk.Label(content, textvariable=self.status, font=('Segoe UI', 10, 'bold'),
                  fg='#8ce4c4', bg='#0c1726', wraplength=650, justify='left').pack(anchor='w', pady=(12, 16))
@@ -121,6 +124,18 @@ class OrbitCenter:
         except OSError:
             messagebox.showerror('ORBIT', 'Impossible d’ouvrir l’aperçu de projection.')
 
+    def open_window_cockpit(self):
+        if self.window_cockpit is not None and self.window_cockpit.poll() is None:
+            self.status.set('Les repères de fenêtres sont déjà ouverts.')
+            return
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
+        try:
+            self.window_cockpit = subprocess.Popen([sys.executable, str(ROOT / 'cockpit_windows.py')],
+                                                    cwd=str(ROOT), creationflags=flags)
+            self.status.set('Repères de fenêtres ouverts : choisis les fenêtres à associer.')
+        except OSError:
+            messagebox.showerror('ORBIT', 'Impossible d’ouvrir les repères de fenêtres.')
+
     def run_diagnostic(self, with_camera=False):
         if self.diagnostic is not None and self.diagnostic.poll() is None:
             return
@@ -169,4 +184,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
