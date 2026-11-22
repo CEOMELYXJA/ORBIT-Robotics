@@ -10,7 +10,7 @@ const nodes = [
 const text = describe(nodes[1],nodes);
 assert.match(text,/Situé dans : Jardin/);
 assert.match(text,/À l’intérieur : Feuille/);
-assert.match(text,/À côté : Rivière, Outil/);
+assert.match(text,/À côté \(objets voisins\) : Rivière, Outil/);
 assert.match(text,/Liens dans la carte : Outil/);
 assert.match(text,/aucun lien automatique avec un vrai dossier/);
 assert.match(describe({id:'empty',kind:'folder',scaleShell:true},[]),/À l’intérieur : aucun pour le moment/);

@@ -313,14 +313,17 @@
       const gl = this.gl;
       this.resize();
       if (!walkMode) {
-        this.camera.target = this.camera.target.map((v, i) => v + (this.camera.targetGoal[i] - v) * .12);
-        this.camera.distance += (this.camera.distanceGoal - this.camera.distance) * .12;
+        const dt = this.lastCameraTime == null ? 1 / 45 : Math.max(0, Math.min(.08, seconds - this.lastCameraTime));
+        const alpha = 1 - Math.exp(-5.75 * dt);
+        this.camera.target = this.camera.target.map((v, i) => v + (this.camera.targetGoal[i] - v) * alpha);
+        this.camera.distance += (this.camera.distanceGoal - this.camera.distance) * alpha;
       }
+      this.lastCameraTime = seconds;
       this.time = seconds * motion;
       const m = this.prepareMatrices();
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.clearColor(.031, .047, .057, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       this.drawPoints(this.starBuffer, this.starData.length / 4, m.vp, '#aac5c1', .3, 1.5, false);
-      this.drawOrbits(visible, positions, m.vp, mode);
+      this.drawOrbits(visible, positions, m.vp, mode, selectedId, focusId);
       if (menuSphere) this.drawMenuSphere(menuSphere, m);
       if (mode === 'gravity') {
         const source = visible.find(node => node.id === selectedId) || visible[0];
@@ -423,9 +426,11 @@
       gl.depthMask(false); gl.drawArrays(gl.LINES, 0, vertexCount); gl.depthMask(true);
       gl.bindVertexArray(null);
     }
-    drawOrbits(visible, positions, mvp, mode) {
+    drawOrbits(visible, positions, mvp, mode, selectedId, focusId) {
       const values = this.lineScratch, segments = 32;
       this.batchLineFloatCount = 0;
+      this._magneticPointCount = 0;
+      let pulseCount = 0;
       const drawnPeerBands = new Set();
       for (const node of visible) {
         if (!node.parentId) continue;
@@ -440,10 +445,18 @@
           const t = i / segments * Math.PI * 2, j = i * 3, sine = Math.sin(t) * r;
           values[j] = parent[0] + Math.cos(t) * r; values[j + 1] = parent[1] + sine * Math.sin(tilt); values[j + 2] = parent[2] + sine * Math.cos(tilt);
         }
-        const alpha = node.kind === 'widget' ? .024 : node.kind === 'app' ? .019 : .022;
+        const featured = node.parentId === selectedId || node.parentId === focusId || node.id === selectedId;
+        const alpha = featured ? .16 : .045;
         this.appendBatchPath(values, segments, node.color, mode === 'magnetic' ? alpha * 1.08 : alpha, true);
+        if (featured) {
+          for (let i = 0; i < segments; i++) { const t = i / segments * Math.PI * 2, j = i * 3, sine = Math.sin(t) * (r + .035); values[j] = parent[0] + Math.cos(t) * (r + .035); values[j + 1] = parent[1] + sine * Math.sin(tilt); values[j + 2] = parent[2] + sine * Math.cos(tilt); }
+          this.appendBatchPath(values, segments, node.color, .08, true);
+          const angle = this.time * .24 + (node.phase || 0), sine = Math.sin(angle) * r;
+          pulseCount = this.appendMagneticPoint(parent[0] + Math.cos(angle) * r, parent[1] + sine * Math.sin(tilt), parent[2] + sine * Math.cos(tilt), angle);
+        }
       }
       this.submitBatchLines(mvp);
+      if (pulseCount) this.drawPoints(this.pointBuffer, pulseCount, mvp, '#d3fff0', .9, 4, true, this.magneticPointScratch, pulseCount * 4);
     }
     drawMenuSphere({ center, radius, color = '#93c9bc' }, matrices) {
       const gl = this.gl;
@@ -665,13 +678,21 @@
       }
       return points;
     }
-    drawOrbits(visible, positions, mode) {
+    drawOrbits(visible, positions, mode, selectedId, focusId) {
       const drawnPeerBands = new Set();
       for (const item of visible) {
         if (!item.parentId) continue;
         if (item.peerLevel) { const key = `${item.parentId}:${item.scaleDepth}`; if (drawnPeerBands.has(key)) continue; drawnPeerBands.add(key); }
         const parent = positions.get(item.parentId); if (!parent) continue;
-        this.path(this.orbitPoints(parent, item.orbit || .8, item.inclination || 0), item.color, mode === 'magnetic' ? .045 : .03, 1, true);
+        const featured = item.parentId === selectedId || item.parentId === focusId || item.id === selectedId;
+        const radius = item.orbit || .8, tilt = item.inclination || 0;
+        this.path(this.orbitPoints(parent, radius, tilt), item.color, featured ? .3 : .08, featured ? 2 : 1, true);
+        if (featured) {
+          this.path(this.orbitPoints(parent, radius + .035, tilt), item.color, .14, 1, true);
+          const a = this.time * .24 + (item.phase || 0), s = Math.sin(a) * radius;
+          const p = this.project([parent[0] + Math.cos(a) * radius, parent[1] + s * Math.sin(tilt), parent[2] + s * Math.cos(tilt)]);
+          if (p) { this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); this.ctx.fillStyle = '#d3fff0'; this.ctx.fill(); }
+        }
       }
     }
     drawMenuSphere({ center, radius, color = '#93c9bc' }) {
@@ -749,9 +770,12 @@
     render({ visible, positions, mode, selectedId, focusId, walkMode = false, seconds, motion = 1, menuSphere = null }) {
       this.resize();
       if (!walkMode) {
-        this.camera.target = this.camera.target.map((value, index) => value + (this.camera.targetGoal[index] - value) * .12);
-        this.camera.distance += (this.camera.distanceGoal - this.camera.distance) * .12;
+        const dt = this.lastCameraTime == null ? 1 / 45 : Math.max(0, Math.min(.08, seconds - this.lastCameraTime));
+        const alpha = 1 - Math.exp(-5.75 * dt);
+        this.camera.target = this.camera.target.map((value, index) => value + (this.camera.targetGoal[index] - value) * alpha);
+        this.camera.distance += (this.camera.distanceGoal - this.camera.distance) * alpha;
       }
+      this.lastCameraTime = seconds;
       this.time = seconds * motion;
       const m = this.prepareMatrices(), ctx = this.ctx, width = this.canvas.clientWidth, height = this.canvas.clientHeight;
       ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
@@ -760,7 +784,7 @@
       background.addColorStop(0, '#142126'); background.addColorStop(.55, '#0c1218'); background.addColorStop(1, '#080c11');
       ctx.fillStyle = background; ctx.fillRect(0, 0, width, height);
       for (const star of this.stars) { const p = this.project(star.point); if (p) this.dot(p, .45 + (Math.sin(seconds * .72 + star.phase) + 1) * .28, '#aac5c1', .18); }
-      this.drawOrbits(visible, positions, mode);
+      this.drawOrbits(visible, positions, mode, selectedId, focusId);
       if (menuSphere) this.drawMenuSphere(menuSphere);
       if (mode === 'gravity') { const source = visible.find(item => item.id === selectedId) || visible[0]; this.drawGravity(positions.get(source?.id) || [0, 0, 0], source?.mass || 1, this.time); }
       if (mode === 'magnetic') this.drawMagnetic(visible, positions, this.time);
@@ -778,4 +802,3 @@
   }
   window.MolecularSpace = MolecularSpace;
 })();
-

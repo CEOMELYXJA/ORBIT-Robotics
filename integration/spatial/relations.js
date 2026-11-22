@@ -18,7 +18,7 @@
       lines.push(`À l’intérieur : ${listNames(inside)}`);
       if (!inside.length && item.scaleShell) lines.push('Des objets de démonstration pourront être créés en explorant cet espace.');
     }
-    lines.push(`À côté : ${listNames(neighbours)}`);
+    lines.push(`\nÀ côté (objets voisins) : ${listNames(neighbours)}`);
     lines.push(`Liens dans la carte : ${listNames(linked)}`);
     if (item.generatedScope || item.scaleShell) lines.push('Espace généré : aucun lien automatique avec un vrai dossier ou programme Windows.');
     return lines.join('\n');

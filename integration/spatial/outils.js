@@ -19,7 +19,7 @@
 
   function setup(document, storage) {
     const el = id => document.getElementById(id);
-    const dialog = el('toolsDialog'), note = el('toolNote'), noteStatus = el('toolNoteStatus');
+    const note = el('toolNote'), noteStatus = el('toolNoteStatus');
     const canvas = el('toolCanvas'), drawStatus = el('toolDrawStatus');
     const ctx = canvas.getContext('2d');
     let strokes = [], current = null, drawingWritable = true;
@@ -68,13 +68,39 @@
       try { storage.setItem('orbit.notes.v1', note.value); noteStatus.textContent = 'Notes sauvegardées localement.'; }
       catch { noteStatus.textContent = 'Sauvegarde impossible : garde cette fenêtre ouverte.'; }
     });
-    el('toolCalculate').addEventListener('click', () => {
-      el('toolCalcResult').textContent = calculate(el('toolA').value, el('toolOperator').value, el('toolB').value);
+    el('clearDrawing').addEventListener('click', () => {
+      if (!drawingWritable || !strokes.length) return;
+      try {
+        // Keep the previous drawing locally, even after the canvas is cleared.
+        const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        storage.setItem(`orbit.dessin.archive.${stamp}`, JSON.stringify(strokes));
+        storage.setItem('orbit.dessin.v1', '[]');
+        strokes = []; current = null; render(); drawStatus.textContent = 'Dessin effacé. Copie précédente conservée localement.';
+      } catch { drawStatus.textContent = 'Effacement impossible : le dessin est conservé.'; }
     });
-    el('toolsButton').addEventListener('click', () => { render(); dialog.showModal(); });
+    let display = '0', first = null, operator = null, replace = false;
+    const output = el('calcDisplay');
+    el('calcKeys').addEventListener('click', event => {
+      const key = event.target.closest?.('[data-key]')?.dataset.key;
+      if (!key) return;
+      if (key === 'C') { display = '0'; first = operator = null; replace = false; }
+      else if (/^\d$/.test(key)) { display = replace || display === '0' ? key : display + key; replace = false; }
+      else if (key === '.') { if (replace) { display = '0'; replace = false; } if (!display.includes('.')) display += '.'; }
+      else if (key === 'back') { display = display.length > 1 ? display.slice(0, -1) : '0'; if (display === '-') display = '0'; }
+      else if (key === 'sign') { if (display !== '0') display = display.startsWith('-') ? display.slice(1) : '-' + display; }
+      else if (['+', '-', '*', '/'].includes(key)) {
+        if (first !== null && operator && !replace) display = calculate(first, operator, display);
+        first = display; operator = key; replace = true;
+      } else if (key === '=' && first !== null && operator) {
+        display = calculate(first, operator, display); first = operator = null; replace = true;
+      }
+      output.textContent = display;
+    });
+    for (const [button, dialog] of [['calcButton', 'calcDialog'], ['notesButton', 'notesDialog'], ['drawButton', 'drawDialog']]) {
+      el(button).addEventListener('click', () => { if (button === 'drawButton') render(); const target = el(dialog); if (!target.open) target.show(); });
+    }
     render();
   }
   root.OrbitTools = { calculate, setup };
   if (typeof module !== 'undefined') module.exports = root.OrbitTools;
 })(typeof window !== 'undefined' ? window : globalThis);
-

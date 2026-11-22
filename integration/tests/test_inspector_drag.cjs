@@ -1,0 +1,16 @@
+const fs = require('node:fs'), vm = require('node:vm'), assert = require('node:assert/strict');
+const source = fs.readFileSync(require('node:path').join(__dirname, '../spatial/app.js'), 'utf8');
+const start = source.indexOf('  function setupInspectorDrag() {');
+const end = source.indexOf('  function handleInspectorAction(', start);
+assert.ok(start >= 0 && end > start);
+const events = {}, memory = new Map();
+const handle = {addEventListener:(name, fn)=>events[name]=fn, setPointerCapture(){}};
+const inspector = {offsetWidth:200,offsetHeight:100,style:{},getBoundingClientRect:()=>({left:20,top:30})};
+const localStorage = {setItem:(key,value)=>memory.set(key,value),getItem:key=>memory.get(key)||null};
+const context = {el:()=>handle, inspector, localStorage, window:{innerWidth:800,innerHeight:600,addEventListener(){}}, Number, JSON, Math, parseFloat};
+vm.runInNewContext(source.slice(start,end)+'\nsetupInspectorDrag();', context);
+const event=(x,y)=>({button:0,pointerId:1,clientX:x,clientY:y,target:{closest:()=>null},preventDefault(){},stopPropagation(){}});
+events.pointerdown(event(30,40)); events.pointermove(event(900,700)); events.pointerup(event(900,700));
+assert.equal(inspector.style.left,'600px'); assert.equal(inspector.style.top,'500px');
+assert.deepEqual(JSON.parse(memory.get('orbit.inspector.position.v1')),{x:600,y:500});
+console.log('Fiche déplaçable et limitée à la fenêtre : OK.');

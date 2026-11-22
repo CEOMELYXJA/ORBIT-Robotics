@@ -31,6 +31,18 @@
 
     <section id="spaceMenu" class="space-menu hidden" aria-label="Sphère de commande 3D de l’espace" aria-live="polite"></section>
 
+    <aside id="locationMap" class="location-map" aria-label="Carte de mon emplacement">
+      <div id="locationHandle" class="location-handle" tabindex="0" title="Glisser ou utiliser les flèches pour déplacer la carte"><span>✦ MA CARTE</span><small>⋮⋮</small></div>
+      <div id="locationCurrent" class="location-current"></div>
+      <div class="location-history" aria-label="Espaces visités"><button id="locationBack" type="button" title="Revenir à l’espace visité avant">← Retour</button><button id="locationForward" type="button" title="Retourner à l’espace visité après">Avancer →</button></div>
+      <div id="locationGraph" class="location-graph" aria-label="Carte des espaces reliés"></div>
+      <div class="location-legend"><span>● Ici</span><span>● Au-dessus</span><span>● À l’intérieur</span><span>● Voisins</span></div>
+      <div class="location-pages"><button id="locationPreviousChildren" type="button" aria-label="Planètes intérieures précédentes">‹</button><span id="locationChildrenPage"></span><button id="locationNextChildren" type="button" aria-label="Planètes intérieures suivantes">›</button><button id="locationPreviousPeers" type="button" aria-label="Voisins précédents">‹</button><span id="locationPeersPage"></span><button id="locationNextPeers" type="button" aria-label="Voisins suivants">›</button></div>
+      <details class="location-fold" open><summary>Mon chemin · toucher un niveau pour y revenir</summary><div id="locationPath" class="location-path" aria-label="Chemin vers l’espace actuel"></div></details>
+      <details class="location-fold"><summary>À l’intérieur <span id="locationChildCount"></span></summary><div id="locationChildren" class="location-options"></div></details>
+      <details class="location-fold"><summary>Au même niveau <span id="locationPeerCount"></span></summary><div id="locationPeers" class="location-options"></div></details>
+    </aside>
+
     <div class="scene-heading" aria-live="polite">
       <span class="scene-kicker"><span id="spaceCode">SYSTÈME 00</span><i></i><span id="spaceMode">ESPACE LOCAL</span></span>
       <h1 id="sceneTitle">Le Bureau</h1>
@@ -45,7 +57,7 @@
     </div>
 
     <section id="objectInspector" class="object-inspector hidden" aria-live="polite">
-      <div class="inspector-cap"><span id="inspectorClass">DOSSIER · ATOME</span><button id="inspectorClose" aria-label="Fermer les détails">×</button></div>
+      <div class="inspector-cap" id="inspectorHandle" title="Glisser pour déplacer"><span id="inspectorClass">DOSSIER · ATOME</span><button id="inspectorClose" aria-label="Fermer les détails">×</button></div>
       <div class="inspector-heading"><span id="inspectorGlyph" class="inspector-glyph">◈</span><div><h2 id="inspectorName">Documents</h2><span id="inspectorDescription">Dossier · 4 atomes liés</span></div></div>
       <div id="inspectorData" class="inspector-data"></div>
     <p id="inspectorRelations" class="inspector-relations"></p>
@@ -58,15 +70,28 @@
     <footer class="bottom-rail">
       <div class="physics-tools"><span class="motion-value">MODE SPATIAL</span></div>
       <div class="interaction-hint"><span class="mouse-glyph">◉</span><span>GLISSER <i>POUR ORBITER</i></span><span class="hint-divider"></span><span>MOLETTE <i>POUR CHANGER D’ÉCHELLE</i></span></div>
-      <div class="bottom-right"><button id="toolsButton" class="hand-mode-button" type="button">Mes outils</button><button id="agentsButton" class="hand-mode-button" type="button">Agents locaux</button><button id="handModeButton" class="hand-mode-button" type="button" aria-pressed="true" title="En mode main, les planètes ne se déplacent pas accidentellement">✋ Mode main : activé</button><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
+      <div class="bottom-right"><button id="calcButton" class="hand-mode-button" type="button">Calculatrice</button><button id="notesButton" class="hand-mode-button" type="button">Notes</button><button id="drawButton" class="hand-mode-button" type="button">Dessin</button><button id="agentsButton" class="hand-mode-button" type="button">Agents locaux</button><button id="handModeButton" class="hand-mode-button" type="button" aria-pressed="true" title="En mode main, les planètes ne se déplacent pas accidentellement">✋ Mode main : activé</button><span id="saveStatus" class="save-status"><i></i>ÉTAT LOCAL</span></div>
     </footer>
   </main>
 
-  <dialog id="toolsDialog" class="glass-dialog tools-dialog" aria-labelledby="toolsTitle">
-    <div class="dialog-topline"><span id="toolsTitle">MES OUTILS ORBIT</span><button data-close="toolsDialog" aria-label="Fermer">×</button></div>
-    <section><h2>Calculatrice</h2><div class="tool-calc"><input id="toolA" type="number" step="any" aria-label="Premier nombre" placeholder="Nombre"><select id="toolOperator" aria-label="Opération"><option value="+">+</option><option value="-">−</option><option value="*">×</option><option value="/">÷</option></select><input id="toolB" type="number" step="any" aria-label="Deuxième nombre" placeholder="Nombre"><button id="toolCalculate" type="button">Calculer</button></div><p id="toolCalcResult" aria-live="polite">Résultat ici</p></section>
-    <section><h2>Notes</h2><textarea id="toolNote" rows="4" aria-label="Notes locales" placeholder="Écris tes notes ici..."></textarea><small id="toolNoteStatus" aria-live="polite">Sauvegarde locale automatique.</small></section>
-    <section><h2>Dessin</h2><canvas id="toolCanvas" width="640" height="240" aria-label="Zone de dessin" tabindex="0"></canvas><small id="toolDrawStatus" aria-live="polite">Dessine avec ta souris ou ton pointeur. Sauvegarde locale.</small></section>
+  <dialog id="calcDialog" class="glass-dialog tools-dialog calc-dialog" aria-labelledby="calcTitle">
+    <div class="dialog-topline"><span id="calcTitle">CALCULATRICE</span><button data-close="calcDialog" aria-label="Fermer">×</button></div>
+    <output id="calcDisplay" class="calc-display" aria-live="polite">0</output>
+    <div class="calc-grid" id="calcKeys">
+      <button data-key="C">C</button><button data-key="back" aria-label="Effacer le dernier chiffre">⌫</button><button data-key="sign">±</button><button data-key="/">÷</button>
+      <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="*">×</button>
+      <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="-">−</button>
+      <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="+">+</button>
+      <button data-key="0" class="calc-zero">0</button><button data-key=".">.</button><button data-key="=">=</button>
+    </div>
+  </dialog>
+  <dialog id="notesDialog" class="glass-dialog tools-dialog" aria-labelledby="notesTitle">
+    <div class="dialog-topline"><span id="notesTitle">NOTES</span><button data-close="notesDialog" aria-label="Fermer">×</button></div>
+    <textarea id="toolNote" rows="8" aria-label="Notes locales" placeholder="Écris tes notes ici..."></textarea><small id="toolNoteStatus" aria-live="polite">Sauvegarde locale automatique.</small>
+  </dialog>
+  <dialog id="drawDialog" class="glass-dialog tools-dialog" aria-labelledby="drawTitle">
+    <div class="dialog-topline"><span id="drawTitle">DESSIN</span><button data-close="drawDialog" aria-label="Fermer">×</button></div>
+    <canvas id="toolCanvas" width="640" height="240" aria-label="Zone de dessin" tabindex="0"></canvas><button id="clearDrawing" type="button">Effacer le dessin</button><small id="toolDrawStatus" aria-live="polite">Dessine avec ta souris ou ton pointeur. Sauvegarde locale.</small>
   </dialog>
   <dialog id="agentsDialog" class="glass-dialog search-dialog" aria-labelledby="agentsTitle">
     <div class="dialog-topline"><span id="agentsTitle">AGENTS LOCAUX · CONTRÔLES</span><button data-close="agentsDialog" aria-label="Fermer">×</button></div>

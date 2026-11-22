@@ -136,6 +136,9 @@
   const canvas = el('space'), nodeLayer = el('nodeLayer');
   const inspector = el('objectInspector'), toastEl = el('toast');
   let state = loadState();
+  // Navigation history is session-only; the spatial objects remain untouched.
+  let locationHistory = [state.focusId], locationHistoryIndex = 0;
+  let locationChildPage = 0, locationPeerPage = 0, locationMapFocus = state.focusId;
   let engine;
   let nodeIndex = new Map();
   let childIndex = new Map();
@@ -696,6 +699,58 @@
       lastCoordinateUpdate = now;
     }
     updateBreadcrumb(focus);
+    renderLocationMap(focus);
+  }
+  function renderLocationMap(focus) {
+    if (locationHistory[locationHistoryIndex] !== focus.id) {
+      locationHistory = locationHistory.slice(0, locationHistoryIndex + 1);
+      locationHistory.push(focus.id);
+      if (locationHistory.length > 50) locationHistory.shift();
+      locationHistoryIndex = locationHistory.length - 1;
+    }
+    if (locationMapFocus !== focus.id) {
+      locationMapFocus = focus.id; locationChildPage = 0; locationPeerPage = 0;
+    }
+    const path = [], seen = new Set(); let current = focus;
+    while (current && !seen.has(current.id)) { seen.add(current.id); path.unshift(current); current = node(current.parentId); }
+    const folders = items => items.filter(item => ['root', 'folder'].includes(item.kind));
+    const inside = folders(childrenOf(focus.id));
+    const peers = focus.parentId ? folders(childrenOf(focus.parentId)).filter(item => item.id !== focus.id) : [];
+    locationChildPage = Math.max(0, Math.min(locationChildPage, Math.max(0, Math.ceil(inside.length / 4) - 1)));
+    locationPeerPage = Math.max(0, Math.min(locationPeerPage, Math.max(0, Math.ceil(peers.length / 2) - 1)));
+    const key = JSON.stringify([path.map(n => [n.id, n.name, n.scaleDepth, n.generatedScope]), inside.map(n => [n.id, n.name]), peers.map(n => [n.id, n.name]), locationChildPage, locationPeerPage, locationHistoryIndex, locationHistory.length]);
+    const map = el('locationMap'); if (map.dataset.mapKey === key) return;
+    map.dataset.mapKey = key;
+    const level = `Niveau ${Math.max(0, path.length - 1)}${focus.scaleShell ? ` · échelle ${focus.scaleDepth || 1}` : ''}`;
+    el('locationCurrent').innerHTML = `<small>ICI · ${esc(level)}${focus.generatedScope ? ' générée' : ''}</small>${esc(focus.name)}`;
+    el('locationBack').disabled = locationHistoryIndex === 0;
+    el('locationForward').disabled = locationHistoryIndex >= locationHistory.length - 1;
+    // The miniature is a schematic of actual parent/child relationships in the
+    // model, not an overhead view of the planets' exact 3D coordinates.
+    const graphNodes = [{ item: focus, x: 50, y: 43, role: 'current' }];
+    const ancestor = path.length > 1 ? path[path.length - 2] : null;
+    if (ancestor) graphNodes.push({ item: ancestor, x: 50, y: 12, role: 'parent' });
+    peers.slice(locationPeerPage * 2, locationPeerPage * 2 + 2).forEach((item, i) => graphNodes.push({ item, x: i ? 86 : 14, y: 43, role: 'peer' }));
+    const shownChildren = inside.slice(locationChildPage * 4, locationChildPage * 4 + 4);
+    shownChildren.forEach((item, i) => graphNodes.push({ item, x: 13 + (i + 1) * 74 / (shownChildren.length + 1), y: 77, role: 'child' }));
+    const paths = graphNodes.filter(n => n.role !== 'current').map(n => {
+      const y = n.role === 'parent' ? 26 : n.role === 'child' ? 60 : 43;
+      return `<path d="M 50 43 Q 50 ${y} ${n.x} ${n.y}" class="branch branch-${n.role}" />`;
+    }).join('');
+    const dots = graphNodes.map(n => `<button type="button" class="map-node map-${n.role}" style="--x:${n.x}%;--y:${n.y}%" ${n.role === 'current' ? 'aria-current="location"' : `data-breadcrumb="${esc(n.item.id)}"`} title="${esc(n.item.name)}" aria-label="${n.role === 'current' ? 'Ici' : n.role === 'parent' ? 'Revenir' : n.role === 'peer' ? 'Espace voisin' : 'Entrer'} : ${esc(n.item.name)}"><i></i><span>${esc(n.item.name)}</span></button>`).join('');
+    el('locationGraph').innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="branchGlow"><stop stop-color="#83e2c3"/><stop offset="1" stop-color="#9da8ff"/></linearGradient></defs>${paths}</svg>${dots}`;
+    el('locationPath').innerHTML = path.map((item, i) => `<button type="button" data-breadcrumb="${esc(item.id)}" ${i === path.length - 1 ? 'aria-current="location"' : ''}>${i ? '↳ ' : '◉ '}${esc(item.name)}</button>`).join('');
+    const options = items => items.length ? items.map(item => `<button type="button" data-breadcrumb="${esc(item.id)}">◌ ${esc(item.name)}</button>`).join('') : '<span class="location-empty">Aucun espace pour le moment</span>';
+    el('locationChildren').innerHTML = options(inside);
+    el('locationPeers').innerHTML = options(peers);
+    el('locationChildCount').textContent = `(${inside.length})`;
+    el('locationPeerCount').textContent = `(${peers.length})`;
+    el('locationChildrenPage').textContent = inside.length ? `Intérieur ${locationChildPage * 4 + 1}–${Math.min(inside.length, locationChildPage * 4 + 4)}/${inside.length}` : 'Intérieur 0';
+    el('locationPeersPage').textContent = peers.length ? `Voisins ${locationPeerPage * 2 + 1}–${Math.min(peers.length, locationPeerPage * 2 + 2)}/${peers.length}` : 'Voisins 0';
+    el('locationPreviousChildren').disabled = locationChildPage === 0;
+    el('locationNextChildren').disabled = (locationChildPage + 1) * 4 >= inside.length;
+    el('locationPreviousPeers').disabled = locationPeerPage === 0;
+    el('locationNextPeers').disabled = (locationPeerPage + 1) * 2 >= peers.length;
   }
   function updateBreadcrumb(focus) {
     const path = [], seen = new Set(); let current = focus;
@@ -943,6 +998,10 @@
     state.focusId = n.id; state.selectedId = n.id;
     const anchor = cameraAnchor(n), pos = worldPosition(anchor.id, performance.now() / 1000, new Map());
     engine.camera.mode = 'orbit'; engine.camera.targetGoal = [...pos]; engine.camera.distanceGoal = scopeDistance(n);
+    if (typeof document !== 'undefined') {
+      const scene = document.getElementById('universe');
+      if (scene) { scene.classList.remove('navigation-soften'); void scene.offsetWidth; scene.classList.add('navigation-soften'); }
+    }
     saveState(); renderInspector(n.id);
   }
   function scopeDistance(n) { if (sameLevelEcosystems(n).length > 1) return 15.5; return n?.id === 'root' ? 13.3 : n?.id === 'environment' || n?.generatedScope && n.parentId == null ? 15.5 : 8.2; }
@@ -952,7 +1011,7 @@
     const focus = node(state.focusId) || node('root'); if (!focus) return;
     if (walkMode) exitWalkMode(false);
     if (focus.parentId) enterNode(focus.parentId);
-    else { const outer = createOuterShell(focus); enterNode(outer.id); }
+    else { showToast('Tu es au début de ta carte. Choisis un espace pour avancer.'); return; }
     showToast(`Tu remontes vers « ${node(state.focusId)?.name || 'l’espace'} ».`);
   }
   function activateNode(id) {
@@ -1578,7 +1637,27 @@
 
   function setupControls() {
     try { window.OrbitTools.setup(document, window.localStorage); }
-    catch (error) { console.error(error); el('toolsButton').disabled = true; showToast('Les outils locaux sont temporairement indisponibles.'); }
+    catch (error) { console.error(error); for (const id of ['calcButton', 'notesButton', 'drawButton']) el(id).disabled = true; showToast('Les outils locaux sont temporairement indisponibles.'); }
+    setupInspectorDrag();
+    setupLocationDrag();
+    const goHistory = direction => {
+      const next = locationHistoryIndex + direction;
+      if (next < 0 || next >= locationHistory.length) return;
+      const destination = node(locationHistory[next]);
+      if (!destination || !['root', 'folder'].includes(destination.kind)) { showToast('Cet espace n’est plus disponible dans la carte.'); return; }
+      locationHistoryIndex = next;
+      enterNode(destination.id);
+      renderLocationMap(destination);
+    };
+    el('locationBack').addEventListener('click', () => goHistory(-1));
+    el('locationForward').addEventListener('click', () => goHistory(1));
+    for (const [id, kind, step] of [['locationPreviousChildren', 'child', -1], ['locationNextChildren', 'child', 1], ['locationPreviousPeers', 'peer', -1], ['locationNextPeers', 'peer', 1]]) {
+      el(id).addEventListener('click', () => {
+        if (kind === 'child') locationChildPage = Math.max(0, locationChildPage + step);
+        else locationPeerPage = Math.max(0, locationPeerPage + step);
+        renderLocationMap(node(state.focusId) || node('root'));
+      });
+    }
     el('agentsButton').addEventListener('click', () => el('agentsDialog').showModal());
     for (const agent of window.OrbitAgents.agents) {
       const button = document.createElement('button');
@@ -1682,10 +1761,11 @@
     document.addEventListener('pointercancel', cancelGesture);
     window.addEventListener('blur', cancelGesture);
     document.addEventListener('keydown', event => {
-      if (el('toolsDialog').open || el('agentsDialog').open) return;
+      const openTool = ['drawDialog', 'notesDialog', 'calcDialog'].map(el).find(dialog => dialog.open);
+      if (openTool) { if (event.key === 'Escape') openTool.close(); return; }
+      if (el('agentsDialog').open) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); showSearch(); }
       if (event.key === 'Escape') {
-        if (el('toolsDialog').open) return;
         if (el('agentsDialog').open) return;
         if (walkMode) { exitWalkMode(); return; }
         if (el('searchDialog').open || el('connectDialog').open || el('moveDialog').open || el('filePreviewDialog').open || el('createDialog').open || el('renameDialog').open) return;
@@ -1710,6 +1790,72 @@
     el('filePreviewDialog').addEventListener('close', clearFilePreview);
     window.addEventListener('resize', () => engine.resize());
     reduceMotion.addEventListener?.('change', () => showToast(reduceMotion.matches ? 'Mouvement réduit selon les préférences de Windows.' : 'Mouvement spatial rétabli.'));
+  }
+
+  function setupLocationDrag() {
+    const panel = el('locationMap'), handle = el('locationHandle');
+    const key = 'orbit.location.position.v1'; let drag = null;
+    const move = (x, y) => {
+      const maxX = Math.max(0, window.innerWidth - panel.offsetWidth);
+      const maxY = Math.max(0, window.innerHeight - panel.offsetHeight);
+      panel.style.left = `${Math.max(0, Math.min(maxX, x))}px`;
+      panel.style.top = `${Math.max(0, Math.min(maxY, y))}px`;
+      panel.style.right = 'auto';
+    };
+    const save = () => { try { localStorage.setItem(key, JSON.stringify({x: parseFloat(panel.style.left), y: parseFloat(panel.style.top)})); } catch {} };
+    handle.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      const rect = panel.getBoundingClientRect();
+      drag = {id: event.pointerId, dx: event.clientX - rect.left, dy: event.clientY - rect.top};
+      event.preventDefault(); event.stopPropagation(); handle.setPointerCapture?.(event.pointerId);
+    });
+    handle.addEventListener('pointermove', event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      event.stopPropagation(); move(event.clientX - drag.dx, event.clientY - drag.dy);
+    });
+    handle.addEventListener('pointerup', event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag = null; event.stopPropagation(); save();
+    });
+    handle.addEventListener('pointercancel', () => { drag = null; });
+    handle.addEventListener('keydown', event => {
+      const step = {ArrowLeft: [-12, 0], ArrowRight: [12, 0], ArrowUp: [0, -12], ArrowDown: [0, 12]}[event.key];
+      if (!step) return;
+      const rect = panel.getBoundingClientRect(); event.preventDefault(); event.stopPropagation(); move(rect.left + step[0], rect.top + step[1]); save();
+    });
+    window.addEventListener('resize', () => { if (panel.style.left) move(parseFloat(panel.style.left), parseFloat(panel.style.top)); });
+    try { const saved = JSON.parse(localStorage.getItem(key)); if (Number.isFinite(saved?.x) && Number.isFinite(saved?.y)) move(saved.x, saved.y); } catch {}
+  }
+
+  function setupInspectorDrag() {
+    const handle = el('inspectorHandle');
+    let drag = null;
+    const position = (x, y) => {
+      const maxX = Math.max(0, window.innerWidth - inspector.offsetWidth);
+      const maxY = Math.max(0, window.innerHeight - inspector.offsetHeight);
+      inspector.style.left = `${Math.max(0, Math.min(maxX, x))}px`;
+      inspector.style.top = `${Math.max(0, Math.min(maxY, y))}px`;
+      inspector.style.bottom = 'auto';
+    };
+    handle.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || event.target.closest('button')) return;
+      const rect = inspector.getBoundingClientRect();
+      drag = { id: event.pointerId, dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+      event.stopPropagation(); event.preventDefault(); handle.setPointerCapture?.(event.pointerId);
+    });
+    handle.addEventListener('pointermove', event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      event.stopPropagation(); position(event.clientX - drag.dx, event.clientY - drag.dy);
+    });
+    const finish = event => {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag = null; event.stopPropagation();
+      try { localStorage.setItem('orbit.inspector.position.v1', JSON.stringify({x: parseFloat(inspector.style.left), y: parseFloat(inspector.style.top)})); } catch {}
+    };
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', () => { drag = null; });
+    window.addEventListener('resize', () => { if (inspector.style.top) position(parseFloat(inspector.style.left), parseFloat(inspector.style.top)); });
+    try { const p = JSON.parse(localStorage.getItem('orbit.inspector.position.v1')); if (Number.isFinite(p?.x) && Number.isFinite(p?.y)) position(p.x, p.y); } catch {}
   }
   function handleInspectorAction(action) {
     const n = node(state.selectedId); if (!n) return;
