@@ -165,8 +165,7 @@ def main():
     args = parser.parse_args()
     if args.camo:
         try:
-            from camo_device import ensure_camo_studio, resolve_camo
-            ensure_camo_studio()
+            from camo_device import resolve_camo
             args.camera, args.backend = resolve_camo(preferred=args.backend)
         except (RuntimeError, OSError, ImportError) as error:
             print(str(error), flush=True)

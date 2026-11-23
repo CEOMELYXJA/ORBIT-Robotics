@@ -132,6 +132,7 @@ class OrbitCenter:
             if self.embedded is None:
                 self.embedded = EmbeddedPreview(self.preview, self.child.pid)
             if self.embedded.attach():
+                self.notice = None
                 self.status.set('Caméra intégrée. Clique sur ACTIVER pour utiliser ta main.')
                 self.root.after(300, self.refresh_preview_geometry)
                 return
@@ -146,16 +147,12 @@ class OrbitCenter:
             self.status.set(self.notice)
             return
         self.embed_attempts += 1
-        if self.embed_attempts < 100:
-            self.root.after(200, self.attach_preview)
-        else:
-            if self.embedded:
-                try:
-                    self.embedded.request_close()
-                except OSError:
-                    pass
-            self.notice = 'La caméra ne répond pas encore. Vérifie Camo.'
+        if self.embed_attempts == 100:
+            self.notice = 'Connexion à la caméra en cours. Vérifie Camo si elle tarde.'
             self.status.set(self.notice)
+        # Camo or MediaPipe may take longer than 20 seconds to initialise.
+        # Keep trying while the tracking process is alive.
+        self.root.after(200, self.attach_preview)
 
     def resize_preview(self, event=None):
         if self.embedded:

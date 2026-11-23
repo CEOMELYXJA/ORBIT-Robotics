@@ -58,6 +58,112 @@ class CameraGeometryTests(unittest.TestCase):
             root.destroy()
 
     @unittest.skipUnless(os.name == 'nt', 'Intégration de fenêtre Windows')
+    def test_delayed_opencv_preview_is_attached_after_old_timeout(self):
+        title = 'ORBIT - OpenCV synthetique'
+        program = r"""
+import time
+import ctypes
+from ctypes import wintypes
+import cv2
+import numpy as np
+time.sleep(5)
+title = 'ORBIT - OpenCV synthetique'
+cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(title, 320, 180)
+user = ctypes.WinDLL('user32', use_last_error=True)
+user.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+user.FindWindowW.restype = wintypes.HWND
+user.SetPropW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.HANDLE]
+window = user.FindWindowW(None, title)
+user.SetPropW(window, 'ORBIT.FrameWidth', 320)
+user.SetPropW(window, 'ORBIT.FrameHeight', 180)
+frame = np.zeros((180, 320, 3), dtype=np.uint8)
+while True:
+    cv2.imshow(title, frame)
+    image_rect = cv2.getWindowImageRect(title)
+    user.SetPropW(window, 'ORBIT.TestImageWidth', image_rect[2])
+    user.SetPropW(window, 'ORBIT.TestImageHeight', image_rect[3])
+    if cv2.waitKey(25) in (27, ord('q')):
+        break
+    try:
+        if cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) < 1:
+            break
+    except cv2.error:
+        break
+cv2.destroyAllWindows()
+"""
+        root = tk.Tk()
+        root.attributes('-alpha', 0)
+        process = None
+        try:
+            with patch.object(OrbitCenter, 'refresh'):
+                centre = OrbitCenter(root)
+            root.update()
+            process = subprocess.Popen([sys.executable, '-c', program],
+                                       creationflags=subprocess.CREATE_NO_WINDOW)
+            centre.child = process
+            # Reach the old 100-attempt limit before OpenCV creates its window.
+            centre.embed_attempts = 99
+            with patch.object(embedded_preview, 'TITLE', title):
+                centre.attach_preview()
+                self.assertIn('Connexion à la caméra', centre.status.get())
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    root.update()
+                    if centre.embedded and centre.embedded.handle:
+                        break
+                    self.assertIsNone(process.poll(), 'La fenêtre OpenCV de test s’est arrêtée.')
+                    time.sleep(.03)
+                self.assertTrue(centre.embedded and centre.embedded.handle)
+                self.assertIn('Caméra intégrée', centre.status.get())
+                self.assertIsNone(centre.notice)
+                user = ctypes.WinDLL('user32', use_last_error=True)
+                user.GetParent.argtypes = [wintypes.HWND]
+                user.GetParent.restype = wintypes.HWND
+                user.IsWindowVisible.argtypes = [wintypes.HWND]
+                user.GetPropW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+                user.GetPropW.restype = wintypes.HANDLE
+                self.assertEqual(user.GetParent(centre.embedded.handle), centre.preview.winfo_id())
+                self.assertTrue(user.IsWindowVisible(centre.embedded.handle))
+                self.assertGreater(centre.embedded.last_geometry[2], 1)
+                deadline = time.monotonic() + 5
+                image_width = image_height = 0
+                while time.monotonic() < deadline:
+                    root.update()
+                    image_width = user.GetPropW(centre.embedded.handle, 'ORBIT.TestImageWidth') or 0
+                    image_height = user.GetPropW(centre.embedded.handle, 'ORBIT.TestImageHeight') or 0
+                    if image_width > 1 and image_height > 1:
+                        break
+                    time.sleep(.03)
+                self.assertGreater(image_width, 1)
+                self.assertGreater(image_height, 1)
+                self.assertLessEqual(abs(image_width * 9 - image_height * 16), 32)
+                centre.space = Mock()
+                centre.space.status = 'ready'
+                centre.open_space()
+                root.update()
+                centre.embedded.resize()
+                self.assertEqual(centre.preview.pack_info()['in'], centre.side_slot)
+                self.assertEqual(user.GetParent(centre.embedded.handle), centre.preview.winfo_id())
+                self.assertTrue(user.IsWindowVisible(centre.embedded.handle))
+                centre.show_home()
+                root.update()
+                centre.embedded.resize()
+                self.assertEqual(centre.preview.pack_info()['in'], centre.camera_slot)
+                self.assertEqual(user.GetParent(centre.embedded.handle), centre.preview.winfo_id())
+                centre.embedded.request_close()
+                deadline = time.monotonic() + 10
+                while process.poll() is None and time.monotonic() < deadline:
+                    root.update()
+                    time.sleep(.03)
+                self.assertIsNotNone(process.poll(), 'La fenêtre OpenCV doit se fermer normalement.')
+        finally:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+            root.destroy()
+
+    @unittest.skipUnless(os.name == 'nt', 'Intégration de fenêtre Windows')
     def test_synthetic_window_stays_embedded_as_preview_moves(self):
         title = 'ORBIT - apercu synthetique sans camera'
         program = r"""
