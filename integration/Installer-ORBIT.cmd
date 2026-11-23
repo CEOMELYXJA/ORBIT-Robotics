@@ -9,7 +9,9 @@ if not exist "%ORBIT_BASE%" (
 )
 if not exist "%ORBIT_DIR%.venv\Scripts\python.exe" "%ORBIT_BASE%" -m venv "%ORBIT_DIR%.venv"
 if errorlevel 1 goto error
-"%ORBIT_DIR%.venv\Scripts\python.exe" -m pip install "mediapipe==0.10.21" "opencv-contrib-python==4.11.0.86" "numpy<2" "pyautogui==0.9.54"
+"%ORBIT_DIR%.venv\Scripts\python.exe" -m pip install "mediapipe==0.10.21" "opencv-contrib-python==4.11.0.86" "numpy<2" "pyautogui==0.9.54" "cv2-enumerate-cameras==1.4.0"
+if errorlevel 1 goto error
+"%ORBIT_DIR%.venv\Scripts\python.exe" "%ORBIT_DIR%native\build_webview.py"
 if errorlevel 1 goto error
 echo Installation terminée. Lancez Lancer-ORBIT.cmd.
 pause

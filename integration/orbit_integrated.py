@@ -1,6 +1,8 @@
 import csv
 import argparse
+import ctypes
 import json
+import os
 import sys
 import time
 from datetime import datetime
@@ -95,6 +97,38 @@ def prepare_frames(source, mirror=False, recording=False):
     return preview, recording_frame
 
 
+class EmbeddedFrameSize:
+    """Expose only the current frame dimensions to the local parent window."""
+    def __init__(self):
+        self.user = None
+        self.handle = None
+        self.last_size = None
+        if os.name != 'nt':
+            return
+        try:
+            from ctypes import wintypes
+            user = ctypes.WinDLL('user32', use_last_error=True)
+            user.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+            user.FindWindowW.restype = wintypes.HWND
+            user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+            user.SetPropW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.HANDLE]
+            handle = user.FindWindowW(None, WINDOW_TITLE)
+            pid = wintypes.DWORD()
+            if handle:
+                user.GetWindowThreadProcessId(handle, ctypes.byref(pid))
+            if handle and pid.value == os.getpid():
+                self.user, self.handle = user, handle
+        except (OSError, AttributeError):
+            pass
+
+    def update(self, frame):
+        height, width = frame.shape[:2]
+        if self.user and (width, height) != self.last_size:
+            if (self.user.SetPropW(self.handle, 'ORBIT.FrameWidth', width) and
+                    self.user.SetPropW(self.handle, 'ORBIT.FrameHeight', height)):
+                self.last_size = (width, height)
+
+
 def process_hand_control(guard, gestures, hands, selected, changed):
     """Handle gesture actions without issuing input for an ambiguous pose."""
     if guard.error:
@@ -126,7 +160,17 @@ def main():
     parser.add_argument('--mirror', action='store_true', help='inverser horizontalement la video et le curseur')
     parser.add_argument('--relative', action='store_true', help='mode experimental : fermer la main pour la replacer')
     parser.add_argument('--zoom', type=float, default=1.0, choices=[1.0, 1.5, 2.0], help='zoom central experimental pour les mains eloignees')
+    parser.add_argument('--embedded', action='store_true', help='aperçu intégré dans le centre ORBIT')
+    parser.add_argument('--camo', action='store_true', help='utiliser exclusivement la caméra virtuelle Camo')
     args = parser.parse_args()
+    if args.camo:
+        try:
+            from camo_device import ensure_camo_studio, resolve_camo
+            ensure_camo_studio()
+            args.camera, args.backend = resolve_camo(preferred=args.backend)
+        except (RuntimeError, OSError, ImportError) as error:
+            print(str(error), flush=True)
+            return 2
     guard = start_mouse_guard()
     if guard and args.relative:
         guard.controller.relative_mode = True
@@ -137,7 +181,7 @@ def main():
     print('Camera : ouvrir Camo sur le PC et sur le telephone, puis connecter le telephone.', flush=True)
     camera = cv2.VideoCapture
     cap = camera(args.camera, cv2.CAP_MSMF if args.backend == 'msmf' else cv2.CAP_DSHOW)
-    if not cap.isOpened():
+    if not cap.isOpened() and not args.camo:
         cap.release()
         cap = camera(args.camera, cv2.CAP_DSHOW if args.backend == 'msmf' else cv2.CAP_MSMF)
     if not cap.isOpened():
@@ -175,6 +219,11 @@ def main():
             session = None
 
     try:
+        embedded_size = None
+        if args.embedded:
+            cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(WINDOW_TITLE, 320, 180)
+            embedded_size = EmbeddedFrameSize()
         with hands_api.Hands(max_num_hands=2, model_complexity=0, min_detection_confidence=0.5, min_tracking_confidence=0.5) as hands:
             fps_ema = 0.0
             last_frame_time = time.monotonic()
@@ -186,6 +235,8 @@ def main():
                     break
                 source_frame = zoom_source(source_frame, args.zoom)
                 frame, recording_frame = prepare_frames(source_frame, mirror, session is not None)
+                if embedded_size:
+                    embedded_size.update(frame)
                 result = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 detected = []
                 for idx, hand in enumerate(result.multi_hand_landmarks or []):

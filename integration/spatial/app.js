@@ -376,7 +376,7 @@
   function setSphericalMenuView(view) {
     sphericalMenuView = SPACE_MENU_VIEWS[view] ? view : 'main';
     const definition = SPACE_MENU_VIEWS[sphericalMenuView];
-    const entries = definition.items.filter(item => !item.nativeOnly || typeof window.chrome?.webview?.postMessage === 'function');
+    const entries = definition.items.filter(item => !item.nativeOnly || (!window.__orbitEmbeddedReadOnly && typeof window.chrome?.webview?.postMessage === 'function'));
     const core = {
       id: `menu-${sphericalMenuView}-core`, name: definition.coreName, kind: 'menu', glyph: sphericalMenuView === 'main' ? '◉' : '↶',
       color: definition.coreColor, radius: .72, mass: .3, charge: 1,
@@ -459,7 +459,7 @@
     if (action === 'zoom-out') { closeSpaceMenu({ restoreCamera: false }); zoomOutScope(); return; }
     if (action === 'home') { closeSpaceMenu({ restoreCamera: false }); goRoot(); return; }
     if (action === 'windows') { requestNativeWindows(); return; }
-    if (action === 'close') { const webview = window.chrome?.webview; closeSpaceMenu({ restoreCamera: false }); webview?.postMessage?.('close'); return; }
+    if (action === 'close') { const webview = window.__orbitEmbeddedReadOnly ? null : window.chrome?.webview; closeSpaceMenu({ restoreCamera: false }); webview?.postMessage?.('close'); return; }
     if (action === 'motion') {
       const options = [.085, .16, 0], current = options.findIndex(value => Math.abs(value - state.motion) < .01);
       state.motion = options[(current + 1) % options.length];
@@ -807,8 +807,8 @@
     ];
     if (n.kind === 'app' && n.nativeWindowHandle) return [{ action: 'focus-window', label: 'Mettre la fenêtre au premier plan', glyph: '▣', primary: true }, { action: 'link-app', label: 'Lier au focus', glyph: '⌁' }];
     if (n.kind === 'app') return [
-      { action: n.nativeAppName ? 'launch-app' : 'choose-app', label: n.nativeAppName ? `Ouvrir ${n.nativeAppName}` : 'Choisir une application', glyph: n.nativeAppName ? '▷' : '＋', primary: true },
-      ...(n.nativeAppName ? [{ action: 'choose-app', label: 'Changer l’application', glyph: '↻' }] : []),
+      ...(!window.__orbitEmbeddedReadOnly ? [{ action: n.nativeAppName ? 'launch-app' : 'choose-app', label: n.nativeAppName ? `Ouvrir ${n.nativeAppName}` : 'Choisir une application', glyph: n.nativeAppName ? '▷' : '＋', primary: true }] : []),
+      ...(!window.__orbitEmbeddedReadOnly && n.nativeAppName ? [{ action: 'choose-app', label: 'Changer l’application', glyph: '↻' }] : []),
       { action: 'link-app', label: 'Lier au focus', glyph: '⌁' }
     ];
     if (n.kind === 'widget' && n.widgetType === 'focus') return [{ action: 'toggle-timer', label: state.timer.running ? 'Mettre en pause' : 'Démarrer le foyer', glyph: state.timer.running ? 'Ⅱ' : '▷', primary: true }, { action: 'reset-timer', label: 'Réinitialiser', glyph: '⟲' }];
@@ -947,26 +947,26 @@
     if (message.type === 'focus-result') showToast(message.success ? 'La fenêtre Windows est au premier plan.' : 'Windows n’a pas pu remettre cette fenêtre au premier plan. Actualise la liste.');
   }
   function requestNativeWindows() {
-    const webview = window.chrome?.webview;
+    const webview = window.__orbitEmbeddedReadOnly ? null : window.chrome?.webview;
     if (!webview || typeof webview.postMessage !== 'function') { showToast('La lecture des fenêtres est disponible dans l’hôte Windows natif.'); return; }
     nativeWindowLatestRequestId = `windows-${++nativeWindowRequestSequence}`;
     webview.postMessage({ type: 'list-windows', requestId: nativeWindowLatestRequestId });
     showToast('Lecture locale des fenêtres Windows…');
   }
   function requestNativeWindowFocus(appNode) {
-    const webview = window.chrome?.webview;
+    const webview = window.__orbitEmbeddedReadOnly ? null : window.chrome?.webview;
     if (!appNode?.nativeWindowHandle || !webview || typeof webview.postMessage !== 'function') { showToast('Cette fenêtre Windows n’est plus disponible. Actualise la liste.'); return; }
     webview.postMessage({ type: 'focus-window', windowHandle: appNode.nativeWindowHandle });
   }
   function requestNativeAppChoice(appNode) {
-    const webview = window.chrome?.webview;
+    const webview = window.__orbitEmbeddedReadOnly ? null : window.chrome?.webview;
     if (!appNode || appNode.kind !== 'app' || appNode.nativeWindowHandle) return;
     if (!webview || typeof webview.postMessage !== 'function') { showToast('Associer une application Windows est disponible dans l’hôte natif.'); return; }
     webview.postMessage({ type: 'choose-app', nodeId: appNode.id });
     showToast('Choisis le fichier .exe de cette application Windows.');
   }
   function requestNativeAppLaunch(appNode) {
-    const webview = window.chrome?.webview;
+    const webview = window.__orbitEmbeddedReadOnly ? null : window.chrome?.webview;
     if (!appNode || appNode.kind !== 'app' || appNode.nativeWindowHandle) return;
     if (!appNode.nativeAppName) { requestNativeAppChoice(appNode); return; }
     if (!webview || typeof webview.postMessage !== 'function') { showToast('Le lancement d’applications Windows est disponible dans l’hôte natif.'); return; }
@@ -1679,7 +1679,7 @@
       el('handModeButton').setAttribute('aria-pressed', String(handMode));
       showToast(handMode ? 'Mode main : planètes protégées.' : 'Mode main désactivé : les planètes peuvent être déplacées.');
     });
-    const nativeWebView = window.chrome?.webview;
+    const nativeWebView = window.__orbitEmbeddedReadOnly ? null : window.chrome?.webview;
     if (nativeWebView && typeof nativeWebView.postMessage === 'function') {
       nativeWebView.addEventListener('message', onNativeWindowMessage);
       nativeWebView.postMessage({ type: 'list-registered-apps' });
@@ -1888,7 +1888,7 @@
     engine.camera.target = [...focused]; engine.camera.targetGoal = [...focused];
   }
   function queueFrame(delay = 0) {
-    if (document.hidden || frameTimer || animationFramePending) return;
+    if (document.hidden || earthDialog.open || frameTimer || animationFramePending) return;
     if (delay > 0) {
       frameTimer = window.setTimeout(() => {
         frameTimer = 0;
@@ -1908,7 +1908,7 @@
     return interactive || motion >= .12 ? 1000 / 45 : 1000 / 30;
   }
   function frame(now) {
-    if (document.hidden) return;
+    if (document.hidden || earthDialog.open) return;
     const camera = engine.camera;
     const turning = handMode && cameraYawGoal !== null && cameraPitchGoal !== null &&
       (Math.abs(cameraYawGoal - camera.yaw) > .0001 || Math.abs(cameraPitchGoal - camera.pitch) > .0001);
@@ -1953,6 +1953,24 @@
     queueFrame(frameInterval);
   }
 
+  const earthDialog = el('earth-view');
+  const earthButton = el('earthButton');
+  const cockpitTitle = document.title;
+  function openEarth() {
+    if (!window.OrbitEarthView) {
+      showToast('Le module Terre est introuvable dans cette installation.');
+      return;
+    }
+    window.OrbitEarthView.open();
+    if (earthDialog.open) document.title = 'ORBIT Robotics · Terre et orbite';
+  }
+  earthButton.addEventListener('click', openEarth);
+  earthDialog.addEventListener('close', () => {
+    if (earthDialog.open) return;
+    document.title = cockpitTitle;
+    earthButton.focus({ preventScroll: true });
+    if (engine) { lastFrameTime = 0; wakeFrame(); }
+  });
   rebuildIndex();
   try { initEngine(); }
   catch (error) {
@@ -1978,4 +1996,5 @@
     queueFrame();
     restoreConnectedHandles().catch(error => { console.error(error); showToast('La synchronisation des dossiers connectés a échoué.'); });
   }
+  if (window.location.hash === '#terre') openEarth();
 })();

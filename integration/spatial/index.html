@@ -9,6 +9,7 @@
   <title>ORBIT Robotics · espace spatial</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="earth-view.css" />
 </head>
 <body>
   <main class="universe" id="universe" aria-label="Bureau moléculaire interactif">
@@ -29,6 +30,7 @@
       <span class="rail-spacer"></span>
     </header>
 
+    <button id="earthButton" class="earth-entry hand-mode-button" type="button" aria-haspopup="dialog" aria-controls="earth-view">Terre et orbite</button>
     <section id="spaceMenu" class="space-menu hidden" aria-label="Sphère de commande 3D de l’espace" aria-live="polite"></section>
 
     <aside id="locationMap" class="location-map" aria-label="Carte de mon emplacement">
@@ -74,6 +76,7 @@
     </footer>
   </main>
 
+  <dialog id="earth-view" aria-label="Terre et orbite"></dialog>
   <dialog id="calcDialog" class="glass-dialog tools-dialog calc-dialog" aria-labelledby="calcTitle">
     <div class="dialog-topline"><span id="calcTitle">CALCULATRICE</span><button data-close="calcDialog" aria-label="Fermer">×</button></div>
     <output id="calcDisplay" class="calc-display" aria-live="polite">0</output>
@@ -159,6 +162,8 @@
   <script src="agents.js" defer></script>
   <script src="outils.js" defer></script>
   <script src="relations.js" defer></script>
+  <script src="earth-model.js" defer></script>
+  <script src="earth-view.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

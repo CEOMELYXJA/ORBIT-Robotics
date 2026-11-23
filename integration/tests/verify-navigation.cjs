@@ -1,8 +1,9 @@
 const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 
-const source = fs.readFileSync('app.js', 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'spatial', 'app.js'), 'utf8');
 function excerpt(startMarker, endMarker) {
   const start = source.indexOf(startMarker), end = source.indexOf(endMarker, start);
   assert.ok(start >= 0 && end > start, `expected app code between ${startMarker} and ${endMarker}`);
